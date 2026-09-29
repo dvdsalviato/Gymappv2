@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../domain/routine_model.dart';
 
 class WorkoutRunnerScreen extends StatefulWidget {
@@ -67,8 +68,8 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Chiude dialog
-              Navigator.pop(context); // Torna alla home
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
             child: const Text('OK'),
           ),
@@ -82,9 +83,14 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => RecordSetSheet(
-        initialWeight: _weight,
-        initialReps: _currentExercise.reps,
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: RecordSetSheet(
+          initialWeight: _weight,
+          initialReps: _currentExercise.reps,
+        ),
       ),
     );
 
@@ -245,7 +251,7 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAlignment.start,
+                      crossAlignment: CrossAlignment.start,
                       children: [
                         const Text('Prossimo Esercizio/Serie:', style: TextStyle(fontSize: 12, color: Colors.grey)),
                         Text(_currentExercise.name, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -282,14 +288,35 @@ class RecordSetSheet extends StatefulWidget {
 }
 
 class _RecordSetSheetState extends State<RecordSetSheet> {
-  late double _weight;
-  late int _reps;
+  late TextEditingController _weightController;
+  late TextEditingController _repsController;
 
   @override
   void initState() {
     super.initState();
-    _weight = widget.initialWeight;
-    _reps = widget.initialReps;
+    _weightController = TextEditingController(text: widget.initialWeight.toString());
+    _repsController = TextEditingController(text: widget.initialReps.toString());
+  }
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    _repsController.dispose();
+    super.dispose();
+  }
+
+  void _adjustWeight(double delta) {
+    double current = double.tryParse(_weightController.text) ?? 0.0;
+    current += delta;
+    if (current < 0) current = 0;
+    _weightController.text = current.toStringAsFixed(current % 1 == 0 ? 0 : 1);
+  }
+
+  void _adjustReps(int delta) {
+    int current = int.tryParse(_repsController.text) ?? 0;
+    current += delta;
+    if (current < 1) current = 1;
+    _repsController.text = current.toString();
   }
 
   @override
@@ -314,28 +341,20 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildSelector(
+              _buildEditableBox(
                 label: 'Carico (kg)',
-                value: '$_weight',
-                onDecrement: () => setState(() { if (_weight >= 0.5) _weight -= 0.5; }),
-                onIncrement: () => setState(() => _weight += 0.5),
+                controller: _weightController,
+                isDecimal: true,
+                onDecrement: () => _adjustWeight(-0.5),
+                onIncrement: () => _adjustWeight(0.5),
               ),
-              _buildSelector(
+              _buildEditableBox(
                 label: 'Reps',
-                value: '$_reps',
-                onDecrement: () => setState(() { if (_reps > 1) _reps--; }),
-                onIncrement: () => setState(() => _reps++),
+                controller: _repsController,
+                isDecimal: false,
+                onDecrement: () => _adjustReps(-1),
+                onIncrement: () => _adjustReps(1),
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            children: [
-              ActionChip(label: const Text('+1 kg'), onPressed: () => setState(() => _weight += 1)),
-              ActionChip(label: const Text('+2.5 kg'), onPressed: () => setState(() => _weight += 2.5)),
-              ActionChip(label: const Text('+5 kg'), onPressed: () => setState(() => _weight += 5)),
-              ActionChip(label: const Text('-2.5 kg'), onPressed: () => setState(() { if (_weight >= 2.5) _weight -= 2.5; })),
             ],
           ),
           const SizedBox(height: 24),
@@ -344,7 +363,9 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
             height: 50,
             child: ElevatedButton(
               onPressed: () {
-                Navigator.pop(context, {'weight': _weight, 'reps': _reps});
+                final weight = double.tryParse(_weightController.text) ?? 0.0;
+                final reps = int.tryParse(_repsController.text) ?? 1;
+                Navigator.pop(context, {'weight': weight, 'reps': reps});
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepOrange,
@@ -359,9 +380,10 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
     );
   }
 
-  Widget _buildSelector({
+  Widget _buildEditableBox({
     required String label,
-    required String value,
+    required TextEditingController controller,
+    required bool isDecimal,
     required VoidCallback onDecrement,
     required VoidCallback onIncrement,
   }) {
@@ -371,9 +393,39 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
         const SizedBox(height: 8),
         Row(
           children: [
-            IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.deepOrange), onPressed: onDecrement),
-            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            IconButton(icon: const Icon(Icons.add_circle_outline, color: Colors.deepOrange), onPressed: onIncrement),
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline, color: Colors.deepOrange),
+              onPressed: onDecrement,
+            ),
+            SizedBox(
+              width: 80,
+              child: TextField(
+                controller: controller,
+                keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
+                textAlign: TextAlign.center,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    isDecimal ? RegExp(r'^\d*\.?\d*') : RegExp(r'^\d*'),
+                  ),
+                ],
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[300]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.deepOrange, width: 2),
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, color: Colors.deepOrange),
+              onPressed: onIncrement,
+            ),
           ],
         ),
       ],
