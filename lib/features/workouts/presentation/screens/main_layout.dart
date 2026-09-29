@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../domain/routine_model.dart';
 import 'edit_routine_screen.dart';
+import 'workout_runner_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -28,6 +29,15 @@ class _MainLayoutState extends State<MainLayout> {
       ],
     ),
   ];
+
+  void _startWorkout(WorkoutRoutine routine) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkoutRunnerScreen(routine: routine),
+      ),
+    );
+  }
 
   void _openEditRoutine(WorkoutRoutine routine, int index) async {
     final WorkoutRoutine? updated = await Navigator.push<WorkoutRoutine>(
@@ -76,6 +86,7 @@ class _MainLayoutState extends State<MainLayout> {
     final pages = [
       SchedePage(
         routines: _routines,
+        onStart: _startWorkout,
         onEdit: _openEditRoutine,
         onCreate: _createNewRoutine,
         onDelete: _deleteRoutine,
@@ -156,6 +167,7 @@ class _MainLayoutState extends State<MainLayout> {
 
 class SchedePage extends StatelessWidget {
   final List<WorkoutRoutine> routines;
+  final Function(WorkoutRoutine) onStart;
   final Function(WorkoutRoutine, int) onEdit;
   final VoidCallback onCreate;
   final Function(int) onDelete;
@@ -163,6 +175,7 @@ class SchedePage extends StatelessWidget {
   const SchedePage({
     super.key,
     required this.routines,
+    required this.onStart,
     required this.onEdit,
     required this.onCreate,
     required this.onDelete,
@@ -228,7 +241,7 @@ class SchedePage extends StatelessWidget {
                         children: [
                           Expanded(
                             child: ElevatedButton.icon(
-                              onPressed: () {},
+                              onPressed: () => onStart(routine),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.deepOrange,
                                 foregroundColor: Colors.white,
