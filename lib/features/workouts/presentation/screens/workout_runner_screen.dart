@@ -19,6 +19,8 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
   int _restSecondsLeft = 0;
   Timer? _timer;
 
+  static const neonGreen = Color(0xFF00FF66);
+
   RoutineExercise get _currentExercise => widget.routine.exercises[_currentExerciseIndex];
 
   double _weight = 20.0;
@@ -63,15 +65,16 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text('Allenamento Completato! 🎉'),
-        content: const Text('Ottimo lavoro! La sessione è stata salvata nello storico.'),
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: const Text('Allenamento Completato! 🎉', style: TextStyle(color: neonGreen)),
+        content: const Text('Ottimo lavoro! La sessione è stata salvata nello storico.', style: TextStyle(color: Colors.white)),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            child: const Text('OK'),
+            child: const Text('OK', style: TextStyle(color: neonGreen, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -120,10 +123,10 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.routine.name),
+        title: Text(widget.routine.name.toUpperCase()),
         actions: [
           IconButton(
-            icon: const Icon(Icons.pause),
+            icon: const Icon(Icons.pause, color: neonGreen),
             onPressed: () {},
           ),
         ],
@@ -136,29 +139,31 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
-                      color: Colors.deepOrange.withOpacity(0.1),
+                      color: neonGreen.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: neonGreen.withOpacity(0.4)),
                     ),
                     child: Text(
                       'SERIE $_currentSetIndex DI ${_currentExercise.sets}',
                       style: const TextStyle(
-                        color: Colors.deepOrange,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        color: neonGreen,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        letterSpacing: 1.5,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  const Icon(Icons.fitness_center, size: 64, color: Colors.deepOrange),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 32),
+                  const Icon(Icons.fitness_center, size: 72, color: neonGreen),
+                  const SizedBox(height: 20),
                   Text(
                     _currentExercise.name,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   Text(
                     'Obiettivo: ${_currentExercise.reps} reps · ${_currentExercise.category}',
                     style: const TextStyle(color: Colors.grey, fontSize: 16),
@@ -173,18 +178,18 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
                   const Spacer(),
                   SizedBox(
                     width: double.infinity,
-                    height: 56,
+                    height: 58,
                     child: ElevatedButton.icon(
                       onPressed: _openRecordSheet,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepOrange,
-                        foregroundColor: Colors.white,
+                        backgroundColor: neonGreen,
+                        foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
                       ),
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('▶ Vai', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      icon: const Icon(Icons.play_arrow, size: 28),
+                      label: const Text('▶ REGISTRA E CONTINUA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1)),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -200,61 +205,72 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text('Recupero in corso', style: TextStyle(fontSize: 18, color: Colors.grey)),
-          const SizedBox(height: 24),
+          const Text('RECUPERO IN CORSO', style: TextStyle(fontSize: 18, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+          const SizedBox(height: 32),
           Stack(
             alignment: Alignment.center,
             children: [
               SizedBox(
-                width: 180,
-                height: 180,
+                width: 200,
+                height: 200,
                 child: CircularProgressIndicator(
                   value: _restSecondsLeft / _currentExercise.restSeconds,
-                  strokeWidth: 10,
-                  backgroundColor: Colors.grey[200],
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.deepOrange),
+                  strokeWidth: 12,
+                  backgroundColor: Colors.white12,
+                  valueColor: const AlwaysStoppedAnimation<Color>(neonGreen),
                 ),
               ),
               Text(
                 '${_restSecondsLeft}s',
-                style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: neonGreen),
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 28),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               OutlinedButton(
                 onPressed: () => setState(() => _restSecondsLeft += 30),
-                child: const Text('+30s'),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: neonGreen),
+                  foregroundColor: neonGreen,
+                ),
+                child: const Text('+30s', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               OutlinedButton(
                 onPressed: () {
                   if (_restSecondsLeft > 10) {
                     setState(() => _restSecondsLeft -= 10);
                   }
                 },
-                child: const Text('-10s'),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: neonGreen),
+                  foregroundColor: neonGreen,
+                ),
+                child: const Text('-10s', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
           const Spacer(),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: neonGreen, width: 1.5),
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                  const Icon(Icons.next_plan, color: Colors.deepOrange),
+                  const Icon(Icons.next_plan, color: neonGreen, size: 28),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAlignment: CrossAlignment.start,
                       children: [
-                        const Text('Prossimo Esercizio/Serie:', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        Text(_currentExercise.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('PROSSIMO ESERCIZIO:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
+                        Text(_currentExercise.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                       ],
                     ),
                   ),
@@ -265,7 +281,7 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
           const SizedBox(height: 16),
           TextButton(
             onPressed: _nextSetOrExercise,
-            child: const Text('Salta riposo', style: TextStyle(color: Colors.deepOrange, fontSize: 16)),
+            child: const Text('Salta riposo ⏩', style: TextStyle(color: neonGreen, fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -290,6 +306,7 @@ class RecordSetSheet extends StatefulWidget {
 class _RecordSetSheetState extends State<RecordSetSheet> {
   late TextEditingController _weightController;
   late TextEditingController _repsController;
+  static const neonGreen = Color(0xFF00FF66);
 
   @override
   void initState() {
@@ -323,7 +340,7 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: Color(0xFF1E1E1E),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: const EdgeInsets.all(24),
@@ -333,10 +350,10 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
           Container(
             width: 40,
             height: 4,
-            decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(2)),
           ),
           const SizedBox(height: 16),
-          const Text('Registra Serie', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const Text('REGISTRA SERIE', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: neonGreen, letterSpacing: 1)),
           const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -357,10 +374,10 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 52,
             child: ElevatedButton(
               onPressed: () {
                 final weight = double.tryParse(_weightController.text) ?? 0.0;
@@ -368,11 +385,11 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
                 Navigator.pop(context, {'weight': weight, 'reps': reps});
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepOrange,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                backgroundColor: neonGreen,
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-              child: const Text('Conferma serie', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: const Text('CONFERMA SERIE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1)),
             ),
           ),
         ],
@@ -389,16 +406,16 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
   }) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.remove_circle_outline, color: Colors.deepOrange),
+              icon: const Icon(Icons.remove_circle_outline, color: neonGreen, size: 28),
               onPressed: onDecrement,
             ),
             SizedBox(
-              width: 80,
+              width: 85,
               child: TextField(
                 controller: controller,
                 keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
@@ -408,22 +425,24 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
                     isDecimal ? RegExp(r'^\d*\.?\d*') : RegExp(r'^\d*'),
                   ),
                 ],
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                 decoration: InputDecoration(
                   contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  fillColor: Colors.black,
+                  filled: true,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey[300]!),
+                    borderSide: const BorderSide(color: Colors.grey),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.deepOrange, width: 2),
+                    borderSide: const BorderSide(color: neonGreen, width: 2),
                   ),
                 ),
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: Colors.deepOrange),
+              icon: const Icon(Icons.add_circle_outline, color: neonGreen, size: 28),
               onPressed: onIncrement,
             ),
           ],

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'features/workouts/presentation/screens/main_layout.dart';
+import 'package:flutter/services.dart';
+import 'features/home/presentation/screens/home_screen.dart';
 
 void main() {
-  runApp(const ProviderScope(child: GymApp()));
+  WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  runApp(const GymApp());
 }
 
 class GymApp extends StatelessWidget {
@@ -11,19 +13,66 @@ class GymApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Definizione dei colori Cyber / Fluo
+    const neonGreen = Color(0xFF00FF66); // Verde Fluo / Lime brillante
+    const darkBackground = Color(0xFF121212);
+    const cardBackground = Color(0xFF1E1E1E);
+
     return MaterialApp(
-      title: 'Gymapp',
+      title: 'GymApp',
       debugShowCheckedModeBanner: false,
-      themeMode: ThemeMode.light,
-      theme: ThemeData(
+      themeMode: ThemeMode.dark,
+      darkTheme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.deepOrange,
-          brightness: Brightness.light,
+        brightness: Brightness.dark,
+        scaffoldBackgroundColor: darkBackground,
+        colorScheme: const ColorScheme.dark(
+          primary: neonGreen,
+          secondary: neonGreen,
+          surface: cardBackground,
+          background: darkBackground,
+          onPrimary: Colors.black,
+          onSurface: Colors.white,
         ),
-        scaffoldBackgroundColor: const Color(0xFFF5F5F7),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: darkBackground,
+          elevation: 0,
+          centerTitle: true,
+          titleTextStyle: TextStyle(
+            color: neonGreen,
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.2,
+          ),
+          iconTheme: IconThemeData(color: neonGreen),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: neonGreen,
+            foregroundColor: Colors.black,
+            textStyle: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.8,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: neonGreen,
+          foregroundColor: Colors.black,
+        ),
+        cardTheme: CardTheme(
+          color: cardBackground,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: neonGreen.withOpacity(0.2), width: 1),
+          ),
+        ),
       ),
-      home: const MainLayout(),
+      home: const HomeScreen(),
     );
   }
 }
