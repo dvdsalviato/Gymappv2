@@ -65,7 +65,8 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1E1E1E),
+        backgroundColor: const Color(0xFF1E2228),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Allenamento Completato! 🎉', style: TextStyle(color: neonGreen)),
         content: const Text('Ottimo lavoro! La sessione è stata salvata nello storico.', style: TextStyle(color: Colors.white)),
         actions: [
@@ -122,6 +123,7 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
     }
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(widget.routine.name.toUpperCase()),
         actions: [
@@ -141,8 +143,12 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     decoration: BoxDecoration(
-                      color: neonGreen.withOpacity(0.15),
+                      color: const Color(0xFF1A1D21),
                       borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.5), offset: const Offset(3, 3), blurRadius: 6),
+                        BoxShadow(color: Colors.white.withOpacity(0.05), offset: const Offset(-2, -2), blurRadius: 4),
+                      ],
                       border: Border.all(color: neonGreen.withOpacity(0.4)),
                     ),
                     child: Text(
@@ -156,12 +162,28 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
                     ),
                   ),
                   const SizedBox(height: 32),
-                  const Icon(Icons.fitness_center, size: 72, color: neonGreen),
-                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFF16181C),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.7), offset: const Offset(6, 6), blurRadius: 12),
+                        BoxShadow(color: Colors.white.withOpacity(0.05), offset: const Offset(-4, -4), blurRadius: 8),
+                      ],
+                    ),
+                    child: const Icon(Icons.fitness_center, size: 64, color: neonGreen),
+                  ),
+                  const SizedBox(height: 24),
                   Text(
                     _currentExercise.name,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      shadows: [Shadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 4)],
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Text(
@@ -176,20 +198,35 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
                     ),
                   ],
                   const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 58,
-                    child: ElevatedButton.icon(
-                      onPressed: _openRecordSheet,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: neonGreen,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                  // Pulsante 3D in Rilievo
+                  GestureDetector(
+                    onTap: _openRecordSheet,
+                    child: Container(
+                      width: double.infinity,
+                      height: 58,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00FF66), Color(0xFF00CC52)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                         ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(color: neonGreen.withOpacity(0.4), offset: const Offset(0, 4), blurRadius: 12),
+                          BoxShadow(color: Colors.black.withOpacity(0.6), offset: const Offset(0, 6), blurRadius: 8),
+                        ],
                       ),
-                      icon: const Icon(Icons.play_arrow, size: 28),
-                      label: const Text('▶ REGISTRA E CONTINUA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1)),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.play_arrow, size: 28, color: Colors.black),
+                          SizedBox(width: 8),
+                          Text(
+                            'REGISTRA E CONTINUA',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.black, letterSpacing: 1),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -216,13 +253,18 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
                 child: CircularProgressIndicator(
                   value: _restSecondsLeft / _currentExercise.restSeconds,
                   strokeWidth: 12,
-                  backgroundColor: Colors.white12,
+                  backgroundColor: Colors.white10,
                   valueColor: const AlwaysStoppedAnimation<Color>(neonGreen),
                 ),
               ),
               Text(
                 '${_restSecondsLeft}s',
-                style: const TextStyle(fontSize: 48, fontWeight: FontWeight.w900, color: neonGreen),
+                style: const TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.w900,
+                  color: neonGreen,
+                  shadows: [Shadow(color: neonGreen, blurRadius: 12)],
+                ),
               ),
             ],
           ),
@@ -254,28 +296,31 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
             ],
           ),
           const Spacer(),
-          Card(
-            shape: RoundedRectangleBorder(
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1D21),
               borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: neonGreen, width: 1.5),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withOpacity(0.5), offset: const Offset(4, 4), blurRadius: 8),
+                BoxShadow(color: Colors.white.withOpacity(0.05), offset: const Offset(-2, -2), blurRadius: 4),
+              ],
+              border: Border.all(color: neonGreen.withOpacity(0.3), width: 1.5),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  const Icon(Icons.next_plan, color: neonGreen, size: 28),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAlignment: CrossAlignment.start,
-                      children: [
-                        const Text('PROSSIMO ESERCIZIO:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
-                        Text(_currentExercise.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-                      ],
-                    ),
+            child: Row(
+              children: [
+                const Icon(Icons.next_plan, color: neonGreen, size: 28),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAlignment: CrossAlignment.start,
+                    children: [
+                      const Text('PROSSIMO ESERCIZIO:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
+                      Text(_currentExercise.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 16),
@@ -340,8 +385,11 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF1E1E1E),
+        color: Color(0xFF1A1D21),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(color: Colors.black, blurRadius: 20, offset: Offset(0, -5)),
+        ],
       ),
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -375,79 +423,14 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
             ],
           ),
           const SizedBox(height: 28),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: () {
-                final weight = double.tryParse(_weightController.text) ?? 0.0;
-                final reps = int.tryParse(_repsController.text) ?? 1;
-                Navigator.pop(context, {'weight': weight, 'reps': reps});
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: neonGreen,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              child: const Text('CONFERMA SERIE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEditableBox({
-    required String label,
-    required TextEditingController controller,
-    required bool isDecimal,
-    required VoidCallback onDecrement,
-    required VoidCallback onIncrement,
-  }) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.remove_circle_outline, color: neonGreen, size: 28),
-              onPressed: onDecrement,
-            ),
-            SizedBox(
-              width: 85,
-              child: TextField(
-                controller: controller,
-                keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
-                textAlign: TextAlign.center,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                    isDecimal ? RegExp(r'^\d*\.?\d*') : RegExp(r'^\d*'),
-                  ),
-                ],
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                decoration: InputDecoration(
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                  fillColor: Colors.black,
-                  filled: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.grey),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: neonGreen, width: 2),
-                  ),
-                ),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: neonGreen, size: 28),
-              onPressed: onIncrement,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
+          GestureDetector(
+            onTap: () {
+              final weight = double.tryParse(_weightController.text) ?? 0.0;
+              final reps = int.tryParse(_repsController.text) ?? 1;
+              Navigator.pop(context, {'weight': weight, 'reps': reps});
+            },
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: const Linear
