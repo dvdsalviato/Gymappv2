@@ -198,7 +198,6 @@ class _WorkoutRunnerScreenState extends State<WorkoutRunnerScreen> {
                     ),
                   ],
                   const Spacer(),
-                  // Pulsante 3D in Rilievo
                   GestureDetector(
                     onTap: _openRecordSheet,
                     child: Container(
@@ -433,4 +432,82 @@ class _RecordSetSheetState extends State<RecordSetSheet> {
               width: double.infinity,
               height: 52,
               decoration: BoxDecoration(
-                gradient: const Linear
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00FF66), Color(0xFF00CC52)],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(color: neonGreen.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4)),
+                ],
+              ),
+              child: const Center(
+                child: Text('CONFERMA SERIE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.black, letterSpacing: 1)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEditableBox({
+    required String label,
+    required TextEditingController controller,
+    required bool isDecimal,
+    required VoidCallback onDecrement,
+    required VoidCallback onIncrement,
+  }) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.remove_circle_outline, color: neonGreen, size: 28),
+              onPressed: onDecrement,
+            ),
+            Container(
+              width: 85,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.8), offset: const Offset(2, 2), blurRadius: 4),
+                  BoxShadow(color: Colors.white.withOpacity(0.05), offset: const Offset(-1, -1), blurRadius: 2),
+                ],
+              ),
+              child: TextField(
+                controller: controller,
+                keyboardType: TextInputType.numberWithOptions(decimal: isDecimal),
+                textAlign: TextAlign.center,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    isDecimal ? RegExp(r'^\d*\.?\d*') : RegExp(r'^\d*'),
+                  ),
+                ],
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  fillColor: const Color(0xFF121417),
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey[800]!),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: neonGreen, width: 2),
+                  ),
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, color: neonGreen, size: 28),
+              onPressed: onIncrement,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
