@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../domain/routine_model.dart';
+import 'edit_routine_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -11,13 +13,76 @@ class _MainLayoutState extends State<MainLayout> {
   int _selectedIndex = 0;
   bool _isDarkMode = false;
 
-  final List<Widget> _pages = [
-    const SchedePage(),
-    const StoricoPage(),
+  final List<WorkoutRoutine> _routines = [
+    WorkoutRoutine(
+      id: '1',
+      name: 'test',
+      exercises: [
+        RoutineExercise(
+          name: 'Panca piana con manubri',
+          category: 'Petto',
+          sets: 3,
+          reps: 12,
+          restSeconds: 60,
+        ),
+      ],
+    ),
   ];
+
+  void _openEditRoutine(WorkoutRoutine routine, int index) async {
+    final WorkoutRoutine? updated = await Navigator.push<WorkoutRoutine>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditRoutineScreen(routine: routine),
+      ),
+    );
+
+    if (updated != null) {
+      setState(() {
+        _routines[index] = updated;
+      });
+    }
+  }
+
+  void _createNewRoutine() async {
+    final newRoutine = WorkoutRoutine(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      name: 'Nuova Scheda',
+      exercises: [],
+    );
+
+    final WorkoutRoutine? created = await Navigator.push<WorkoutRoutine>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditRoutineScreen(routine: newRoutine),
+      ),
+    );
+
+    if (created != null) {
+      setState(() {
+        _routines.add(created);
+      });
+    }
+  }
+
+  void _deleteRoutine(int index) {
+    setState(() {
+      _routines.removeAt(index);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      SchedePage(
+        routines: _routines,
+        onEdit: _openEditRoutine,
+        onCreate: _createNewRoutine,
+        onDelete: _deleteRoutine,
+      ),
+      const StoricoPage(),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Gymapp, Davide'),
@@ -68,7 +133,7 @@ class _MainLayoutState extends State<MainLayout> {
           ],
         ),
       ),
-      body: _pages[_selectedIndex],
+      body: pages[_selectedIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: (index) => setState(() => _selectedIndex = index),
@@ -90,14 +155,25 @@ class _MainLayoutState extends State<MainLayout> {
 }
 
 class SchedePage extends StatelessWidget {
-  const SchedePage({super.key});
+  final List<WorkoutRoutine> routines;
+  final Function(WorkoutRoutine, int) onEdit;
+  final VoidCallback onCreate;
+  final Function(int) onDelete;
+
+  const SchedePage({
+    super.key,
+    required this.routines,
+    required this.onEdit,
+    required this.onCreate,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAlignment.start,
+        crossAlignment: CrossAlignment.start,
         children: [
           const Text(
             'Schede',
@@ -108,57 +184,78 @@ class SchedePage extends StatelessWidget {
             style: TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 16),
-          Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: routines.length,
+            itemBuilder: (context, index) {
+              final routine = routines[index];
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAlignment: CrossAlignment.start,
                     children: [
-                      const Text('test', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            routine.name,
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.qr_code, size: 20),
+                                onPressed: () {},
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, size: 20),
+                                onPressed: () => onDelete(index),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Text(
+                        '${routine.exercises.length} esercizi',
+                        style: const TextStyle(color: Colors.grey),
+                      ),
+                      const SizedBox(height: 12),
                       Row(
                         children: [
-                          IconButton(icon: const Icon(Icons.qr_code, size: 20), onPressed: () {}),
-                          IconButton(icon: const Icon(Icons.delete_outline, size: 20), onPressed: () {}),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () {},
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.deepOrange,
+                                foregroundColor: Colors.white,
+                                shape: const StadiumBorder(),
+                              ),
+                              icon: const Icon(Icons.play_arrow),
+                              label: const Text('Inizia'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton.filledTonal(
+                            onPressed: () => onEdit(routine, index),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
                         ],
                       ),
                     ],
                   ),
-                  const Text('1 esercizi', style: TextStyle(color: Colors.grey)),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.deepOrange,
-                            foregroundColor: Colors.white,
-                            shape: StadiumBorder(),
-                          ),
-                          icon: const Icon(Icons.play_arrow),
-                          label: const Text('Inizia'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filledTonal(
-                        onPressed: () {},
-                        icon: const Icon(Icons.edit_outlined),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: onCreate,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepOrange,
                 foregroundColor: Colors.white,
@@ -183,7 +280,7 @@ class StoricoPage extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
-        crossAxisAlignment: CrossAlignment.start,
+        crossAlignment: CrossAlignment.start,
         children: const [
           Text(
             'Storico',
