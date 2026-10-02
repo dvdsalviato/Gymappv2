@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../db/database_helper.dart';
+import '../theme/app_theme.dart';
 import '../theme/theme_controller.dart';
 import 'assistente_screen.dart';
 import 'calendario_screen.dart';
@@ -80,13 +81,52 @@ class _MainScreenState extends State<MainScreen> {
       // Niente IndexedStack: ricreiamo la schermata a ogni cambio tab così i
       // dati (es. lo storico appena salvato) vengono ricaricati sempre.
       body: _indice == 0 ? const SchedeScreen() : const StoricoScreen(),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _indice,
-        onDestinationSelected: (i) => setState(() => _indice = i),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.inventory_2_outlined), label: 'Schede'),
-          NavigationDestination(icon: Icon(Icons.bar_chart_outlined), label: 'Storico'),
-        ],
+      bottomNavigationBar: _barraNavigazione(context),
+    );
+  }
+
+  /// Barra in basso a pillola, con icone tonde: quella attiva diventa verde fluo.
+  Widget _barraNavigazione(BuildContext context) {
+    final voci = [
+      (Icons.inventory_2_outlined, Icons.inventory_2, 'Schede'),
+      (Icons.bar_chart_outlined, Icons.bar_chart, 'Storico'),
+    ];
+    return SafeArea(
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(56, 6, 56, 14),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: coloreCard(context),
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(color: Colors.white.withOpacity(0.07)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            for (var i = 0; i < voci.length; i++)
+              Semantics(
+                label: voci[i].$3,
+                button: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _indice = i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: _indice == i ? AppColors.accento : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _indice == i ? voci[i].$2 : voci[i].$1,
+                      color: _indice == i ? Colors.black : Colors.grey.shade500,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

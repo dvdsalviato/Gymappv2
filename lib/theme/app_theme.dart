@@ -101,6 +101,32 @@ ThemeData _costruisci({
       ),
     ),
     drawerTheme: DrawerThemeData(backgroundColor: card),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+      ),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: AppColors.accento,
+      foregroundColor: Colors.black,
+      shape: CircleBorder(),
+    ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.accento,
+      contentTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
+    progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.accento),
+    switchTheme: SwitchThemeData(
+      thumbColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? Colors.black : null,
+      ),
+      trackColor: WidgetStateProperty.resolveWith(
+        (s) => s.contains(WidgetState.selected) ? AppColors.accento : null,
+      ),
+    ),
   );
 }
 

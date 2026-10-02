@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
@@ -299,7 +300,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Schede', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
+                Text('SCHEDE', style: GoogleFonts.oswald(fontSize: 34, fontWeight: FontWeight.w700, letterSpacing: 1)),
                 IconButton(
                   onPressed: _importaDaQr,
                   icon: const Icon(Icons.qr_code_scanner),
@@ -330,6 +331,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
                             return _CardScheda(
                               nome: s.nome,
                               numeroEsercizi: n,
+                              evidenziata: index == 0,
                               onInizia: () => _iniziaAllenamento(s),
                               onModifica: () => _apriEditor(s),
                               onElimina: () => _eliminaScheda(s),
@@ -354,6 +356,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
 class _CardScheda extends StatelessWidget {
   final String nome;
   final int numeroEsercizi;
+  final bool evidenziata;
   final VoidCallback onInizia;
   final VoidCallback onModifica;
   final VoidCallback onElimina;
@@ -362,6 +365,7 @@ class _CardScheda extends StatelessWidget {
   const _CardScheda({
     required this.nome,
     required this.numeroEsercizi,
+    required this.evidenziata,
     required this.onInizia,
     required this.onModifica,
     required this.onElimina,
@@ -370,11 +374,14 @@ class _CardScheda extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scuro = Theme.of(context).brightness == Brightness.dark;
+    final sottotitolo = evidenziata ? Colors.black87 : Colors.grey.shade500;
+    final iconeColore = evidenziata ? Colors.black87 : Colors.grey;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: coloreCard(context),
-        borderRadius: BorderRadius.circular(24),
+        color: evidenziata ? AppColors.accento : coloreCard(context),
+        borderRadius: BorderRadius.circular(32),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -384,27 +391,43 @@ class _CardScheda extends StatelessWidget {
               Expanded(
                 child: Text(
                   nome,
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.oswald(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                    color: evidenziata ? Colors.black : null,
+                  ),
                 ),
               ),
               IconButton(
                 onPressed: onCondividi,
-                icon: const Icon(Icons.qr_code, color: Colors.grey),
+                icon: Icon(Icons.qr_code, color: iconeColore),
                 tooltip: 'Condividi come QR',
               ),
               IconButton(
                 onPressed: onElimina,
-                icon: const Icon(Icons.delete_outline, color: Colors.grey),
+                icon: Icon(Icons.delete_outline, color: iconeColore),
               ),
             ],
           ),
-          Text('$numeroEsercizi esercizi', style: TextStyle(color: Colors.grey.shade600)),
-          const SizedBox(height: 16),
+          Text(
+            '$numeroEsercizi esercizi',
+            style: TextStyle(color: sottotitolo, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 18),
           Row(
             children: [
               Expanded(
                 child: FilledButton.icon(
                   onPressed: onInizia,
+                  style: evidenziata
+                      ? FilledButton.styleFrom(
+                          backgroundColor: Colors.black,
+                          foregroundColor: AppColors.accento,
+                          minimumSize: const Size.fromHeight(56),
+                          shape: const StadiumBorder(),
+                        )
+                      : null,
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Inizia'),
                 ),
@@ -417,14 +440,12 @@ class _CardScheda extends StatelessWidget {
                   width: 56,
                   height: 56,
                   decoration: BoxDecoration(
-                    color: coloreChip(context),
+                    color: evidenziata ? Colors.black.withOpacity(0.14) : coloreChip(context),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
                     Icons.edit,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white
-                        : Colors.black87,
+                    color: evidenziata ? Colors.black : (scuro ? Colors.white : Colors.black87),
                   ),
                 ),
               ),
