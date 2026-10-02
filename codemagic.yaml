@@ -7,45 +7,33 @@ workflows:
         - gymapp_keystore
       flutter: stable
     scripts:
-      - name: Genera i file Android mancanti
+      - name: Genera i file Android
         script: flutter create --platforms=android .
-      - name: Rinomina app in Gymapp
+      - name: Rinomina app in Gymapp V2
         script: perl -pi -e 's/android:label="[^"]*"/android:label="Gymapp V2"/' android/app/src/main/AndroidManifest.xml
-      - name: Aggiungo permesso internet
+      - name: Permesso internet
         script: |
           grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || \
           perl -pi -e 's{(<application)}{<uses-permission android:name="android.permission.INTERNET"/>\n    $1}' android/app/src/main/AndroidManifest.xml
-      - name: Aggiungo permesso fotocamera (per lo scanner QR)
+      - name: Permesso fotocamera
         script: |
           grep -q 'android.permission.CAMERA' android/app/src/main/AndroidManifest.xml || \
           perl -pi -e 's{(<application)}{<uses-permission android:name="android.permission.CAMERA"/>\n    $1}' android/app/src/main/AndroidManifest.xml
-      - name: Configuro la firma fissa (aggiornamento senza disinstallare)
+      - name: Firma fissa
         script: |
-          FILE="android/app/build.gradle"
-          if ! grep -q "signingConfigs {" "$FILE"; then
-            perl -0777 -pi -e 's/(android \{)/$1
-              signingConfigs {
-                  release {
-                      if (System.getenv()["CI"]) {
-                          storeFile file(System.getenv()["CM_KEYSTORE_PATH"])
-                          storePassword System.getenv()["CM_KEYSTORE_PASSWORD"]
-                          keyAlias System.getenv()["CM_KEY_ALIAS"]
-                          keyPassword System.getenv()["CM_KEY_PASSWORD"]
-                      }
-                  }
-              }
-              /' "$FILE"
-          fi
-          perl -pi -e 's/signingConfig\s*=?\s*signingConfigs\.debug/signingConfig signingConfigs.release/' "$FILE"
-      - name: Installa le dipendenze
-        script: flutter pub get
-      - name: Genero l'icona dell'app (se presente)
-        script: |
-          if [ -f "assets/icon.png" ]; then
-            dart run flutter_launcher_icons
+          if [ -f android/app/build.gradle.kts ]; then
+            FILE=android/app/build.gradle.kts
+            perl -0777 -pi -e 's/android \{/android {\n    signingConfigs {\n        create("release") {\n            storeFile = file(System.getenv("CM_KEYSTORE_PATH"))\n            storePassword = System.getenv("CM_KEYSTORE_PASSWORD")\n            keyAlias = System.getenv("CM_KEY_ALIAS")\n            keyPassword = System.getenv("CM_KEY_PASSWORD")\n        }\n    }\n/' "$FILE"
+            perl -pi -e 's/signingConfigs\.getByName\("debug"\)/signingConfigs.getByName("release")/' "$FILE"
           else
-            echo "Nessun assets/icon.png trovato, salto la generazione icona."
+            FILE=android/app/build.gradle
+            perl -0777 -pi -e 's/(android \{)/$1\n    signingConfigs {\n        release {\n            storeFile file(System.getenv()["CM_KEYSTORE_PATH"])\n            storePassword System.getenv()["CM_KEYSTORE_PASSWORD"]\n            keyAlias System.getenv()["CM_KEY_ALIAS"]\n            keyPassword System.getenv()["CM_KEY_PASSWORD"]\n        }\n    }\n/' "$FILE"
+            perl -pi -e 's/signingConfig\s*=?\s*signingConfigs\.debug/signingConfig signingConfigs.release/' "$FILE"
           fi
+      - name: Dipendenze
+        script: flutter pub get
+      - name: Icona app
+        script: dart run flutter_launcher_icons
       - name: Build APK
         script: flutter build apk --release
     artifacts:
