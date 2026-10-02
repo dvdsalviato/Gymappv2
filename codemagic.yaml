@@ -1,0 +1,52 @@
+workflows:
+  android-workflow:
+    name: Android Build
+    max_build_duration: 30
+    environment:
+      android_signing:
+        - gymapp_keystore
+      flutter: stable
+    scripts:
+      - name: Genera i file Android mancanti
+        script: flutter create --platforms=android .
+      - name: Rinomina app in Gymapp
+        script: perl -pi -e 's/android:label="[^"]*"/android:label="Gymapp V2"/' android/app/src/main/AndroidManifest.xml
+      - name: Aggiungo permesso internet
+        script: |
+          grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || \
+          perl -pi -e 's{(<application)}{<uses-permission android:name="android.permission.INTERNET"/>\n    $1}' android/app/src/main/AndroidManifest.xml
+      - name: Aggiungo permesso fotocamera (per lo scanner QR)
+        script: |
+          grep -q 'android.permission.CAMERA' android/app/src/main/AndroidManifest.xml || \
+          perl -pi -e 's{(<application)}{<uses-permission android:name="android.permission.CAMERA"/>\n    $1}' android/app/src/main/AndroidManifest.xml
+      - name: Configuro la firma fissa (aggiornamento senza disinstallare)
+        script: |
+          FILE="android/app/build.gradle"
+          if ! grep -q "signingConfigs {" "$FILE"; then
+            perl -0777 -pi -e 's/(android \{)/$1
+              signingConfigs {
+                  release {
+                      if (System.getenv()["CI"]) {
+                          storeFile file(System.getenv()["CM_KEYSTORE_PATH"])
+                          storePassword System.getenv()["CM_KEYSTORE_PASSWORD"]
+                          keyAlias System.getenv()["CM_KEY_ALIAS"]
+                          keyPassword System.getenv()["CM_KEY_PASSWORD"]
+                      }
+                  }
+              }
+              /' "$FILE"
+          fi
+          perl -pi -e 's/signingConfig\s*=?\s*signingConfigs\.debug/signingConfig signingConfigs.release/' "$FILE"
+      - name: Installa le dipendenze
+        script: flutter pub get
+      - name: Genero l'icona dell'app (se presente)
+        script: |
+          if [ -f "assets/icon.png" ]; then
+            dart run flutter_launcher_icons
+          else
+            echo "Nessun assets/icon.png trovato, salto la generazione icona."
+          fi
+      - name: Build APK
+        script: flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
