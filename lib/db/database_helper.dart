@@ -180,6 +180,26 @@ class DatabaseHelper {
     return StoricoEntry.fromMap(maps.first);
   }
 
+  /// Le serie dell'ultima volta (ultimo giorno precedente a oggi) in cui è
+  /// stato fatto questo esercizio, in ordine di serie.
+  Future<List<StoricoEntry>> getSerieUltimaVolta(int esercizioId) async {
+    final db = await database;
+    final oggi = DateTime.now().toIso8601String().substring(0, 10);
+    final maps = await db.rawQuery(
+      '''
+      SELECT * FROM storico
+      WHERE esercizio_id = ?
+        AND substr(data, 1, 10) = (
+          SELECT MAX(substr(data, 1, 10)) FROM storico
+          WHERE esercizio_id = ? AND substr(data, 1, 10) < ?
+        )
+      ORDER BY serie_numero ASC, id ASC
+      ''',
+      [esercizioId, esercizioId, oggi],
+    );
+    return maps.map((m) => StoricoEntry.fromMap(m)).toList();
+  }
+
   /// Il carico più alto mai registrato per questo esercizio (record personale).
   Future<StoricoEntry?> getRecordPersonale(int esercizioId) async {
     final db = await database;

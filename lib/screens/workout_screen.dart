@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:vibration/vibration.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
@@ -37,6 +38,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   StoricoEntry? _ultimoStorico;
   StoricoEntry? _recordPersonale;
+  List<StoricoEntry> _ultimaVolta = [];
   bool _caricamentoUltimo = true;
 
   Timer? _timer;
@@ -48,7 +50,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 
   Esercizio? _prossimoEsercizio;
   int _prossimaSerieNumero = 1;
-  StoricoEntry? _prossimoUltimoStorico;
+  List<StoricoEntry> _prossimaUltimaVolta = [];
   bool _allenamentoTerminaDopoRiposo = false;
 
   Esercizio get _esercizioCorrente => _coda.first.esercizio;
@@ -88,11 +90,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     final esercizioId = esercizio.id;
     StoricoEntry? ultimo;
     StoricoEntry? record;
+    List<StoricoEntry> ultimaVolta = [];
     if (esercizioId != null) {
       ultimo = await DatabaseHelper.instance.getUltimoStorico(esercizioId);
       record = await DatabaseHelper.instance.getRecordPersonale(esercizioId);
+      ultimaVolta = await DatabaseHelper.instance.getSerieUltimaVolta(esercizioId);
     }
+    if (!mounted) return;
     setState(() {
+      _ultimaVolta = ultimaVolta;
       _ultimoStorico = ultimo;
       _recordPersonale = record;
       _caricamentoUltimo = false;
@@ -215,12 +221,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Future<void> _caricaProssimoStorico() async {
     final id = _prossimoEsercizio?.id;
     if (id == null) {
-      _prossimoUltimoStorico = null;
+      _prossimaUltimaVolta = [];
       return;
     }
-    final ultimo = await DatabaseHelper.instance.getUltimoStorico(id);
+    final serie = await DatabaseHelper.instance.getSerieUltimaVolta(id);
     if (mounted) {
-      setState(() => _prossimoUltimoStorico = ultimo);
+      setState(() => _prossimaUltimaVolta = serie);
     }
   }
 
@@ -343,7 +349,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
       child: Text(
         testo,
-        style: TextStyle(color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+        style: TextStyle(
+          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade400 : Colors.grey.shade700,
+          fontStyle: FontStyle.italic,
+        ),
       ),
     );
   }
@@ -380,27 +389,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         children: [
           _suggerimento('Pronto? Premi VAI quando parti con la serie!'),
           const SizedBox(height: 20),
-          Text(
-            'SERIE ${voce.numeroSerie} DI ${voce.esercizio.serieTotali}',
-            style: const TextStyle(
-              color: AppColors.accento,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            voce.esercizio.nome,
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          if (voce.esercizio.note != null && voce.esercizio.note!.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              '📝 ${voce.esercizio.note}',
-              style: TextStyle(color: Colors.grey.shade600, fontStyle: FontStyle.italic),
-            ),
-          ],
+          _hero('SERIE ${voce.numeroSerie} DI ${voce.esercizio.serieTotali}', voce.esercizio.nome, voce.esercizio.note),
           const SizedBox(height: 20),
           _iconaEsercizio(),
           const SizedBox(height: 20),
@@ -412,13 +401,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
               if (_caricamentoUltimo)
                 const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
               else ...[
-                if (_ultimoStorico != null)
-                  _chip('Ultima: ${_ultimoStorico!.carico} kg x ${_ultimoStorico!.rep}'),
                 if (_recordPersonale != null)
                   _chip('🏆 Record: ${_recordPersonale!.carico} kg'),
               ],
             ],
           ),
+          const SizedBox(height: 16),
+          _ultimaVoltaCard(_ultimaVolta, voce.numeroSerie),
           const SizedBox(height: 32),
           FilledButton.icon(
             onPressed: _premiVai,
@@ -462,27 +451,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         children: [
           _suggerimento('Stai dando il massimo! Premi Fine quando hai completato la serie.'),
           const SizedBox(height: 20),
-          Text(
-            'SERIE $_numeroSerie DI ${_esercizioCorrente.serieTotali}',
-            style: const TextStyle(
-              color: AppColors.accento,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _esercizioCorrente.nome,
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-          ),
-          if (_esercizioCorrente.note != null && _esercizioCorrente.note!.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              '📝 ${_esercizioCorrente.note}',
-              style: TextStyle(color: Colors.grey.shade600, fontStyle: FontStyle.italic),
-            ),
-          ],
+          _hero('SERIE $_numeroSerie DI ${_esercizioCorrente.serieTotali}', _esercizioCorrente.nome, _esercizioCorrente.note),
           const SizedBox(height: 20),
           _iconaEsercizio(),
           const SizedBox(height: 20),
@@ -491,12 +460,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             runSpacing: 12,
             children: [
               _chip('Obiettivo ${_esercizioCorrente.repTarget} reps'),
-              if (_ultimoStorico != null)
-                _chip('Ultima: ${_ultimoStorico!.carico} kg x ${_ultimoStorico!.rep}'),
               if (_recordPersonale != null)
                 _chip('🏆 Record: ${_recordPersonale!.carico} kg'),
             ],
           ),
+          const SizedBox(height: 16),
+          _ultimaVoltaCard(_ultimaVolta, _numeroSerie),
           const SizedBox(height: 32),
           FilledButton.icon(
             onPressed: _premiFineSerie,
@@ -587,13 +556,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
                     style: TextStyle(color: Colors.grey.shade600),
                     textAlign: TextAlign.center,
                   ),
-                  if (_prossimoUltimoStorico != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Ultima volta: ${_prossimoUltimoStorico!.carico} kg x ${_prossimoUltimoStorico!.rep}',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                  const SizedBox(height: 14),
+                  _ultimaVoltaCard(_prossimaUltimaVolta, _prossimaSerieNumero, compatta: true),
                 ],
               ),
             ),
@@ -626,6 +590,138 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           child: const Text('Torna alla scheda'),
         ),
       ],
+    );
+  }
+
+  Widget _hero(String serie, String nome, String? note) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.accento,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            serie,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            nome,
+            style: GoogleFonts.oswald(
+              color: Colors.black,
+              fontSize: 30,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+            ),
+          ),
+          if (note != null && note.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              '📝 $note',
+              style: const TextStyle(color: Colors.black87, fontStyle: FontStyle.italic),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _numeroBreve(double v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+
+  String _dataBreve(String iso) {
+    final d = DateTime.tryParse(iso);
+    if (d == null) return '';
+    const giorni = ['lun', 'mar', 'mer', 'gio', 'ven', 'sab', 'dom'];
+    return '${giorni[d.weekday - 1]} ${d.day}/${d.month}';
+  }
+
+  /// Riquadro con TUTTE le serie dell'ultima volta in cui hai fatto questo
+  /// esercizio; la serie che stai per fare (o che stai facendo) è evidenziata.
+  Widget _ultimaVoltaCard(List<StoricoEntry> serie, int serieCorrente, {bool compatta = false}) {
+    if (_caricamentoUltimo && !compatta) return const SizedBox.shrink();
+
+    final sfondo = compatta ? coloreChip(context) : coloreCard(context);
+
+    if (serie.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(color: sfondo, borderRadius: BorderRadius.circular(20)),
+        child: Row(
+          mainAxisAlignment: compatta ? MainAxisAlignment.center : MainAxisAlignment.start,
+          children: [
+            const Icon(Icons.trending_up, color: AppColors.accento, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              'Prima volta con questo esercizio',
+              style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final righe = <Widget>[];
+    for (final s in serie) {
+      final attuale = s.serieNumero == serieCorrente;
+      righe.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 72,
+                child: Text(
+                  'Serie ${s.serieNumero}',
+                  style: TextStyle(
+                    color: attuale ? AppColors.accento : Colors.grey.shade500,
+                    fontWeight: attuale ? FontWeight.bold : FontWeight.w500,
+                  ),
+                ),
+              ),
+              Text(
+                '${_numeroBreve(s.carico)} kg × ${s.rep}',
+                style: TextStyle(
+                  color: attuale ? AppColors.accento : null,
+                  fontWeight: attuale ? FontWeight.bold : FontWeight.w500,
+                  fontSize: attuale ? 18 : 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      decoration: BoxDecoration(color: sfondo, borderRadius: BorderRadius.circular(20)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ULTIMA VOLTA · ${_dataBreve(serie.first.data)}',
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ...righe,
+        ],
+      ),
     );
   }
 
@@ -668,7 +764,11 @@ class _RegistraSerieSheetState extends State<_RegistraSerieSheet> {
         left: 24,
         right: 24,
         top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        // Sopra la tastiera, oppure sopra i tasti/barra di navigazione Android.
+        bottom: (MediaQuery.of(context).viewInsets.bottom > MediaQuery.of(context).viewPadding.bottom
+                ? MediaQuery.of(context).viewInsets.bottom
+                : MediaQuery.of(context).viewPadding.bottom) +
+            28,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -677,7 +777,7 @@ class _RegistraSerieSheetState extends State<_RegistraSerieSheet> {
           const Text('Registra la serie', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Text(
-            'Trascina su/giù o usa le frecce per cambiare i valori',
+            'Trascina su/giù, usa le frecce o tocca due volte il numero per scriverlo',
             style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
           ),
           const SizedBox(height: 16),

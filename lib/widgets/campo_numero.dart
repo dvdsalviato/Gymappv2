@@ -53,6 +53,44 @@ class CampoNumeroState extends State<CampoNumero> {
     }
   }
 
+  /// Doppio tap sul numero: si apre la tastiera per scrivere il valore a mano.
+  Future<void> _modificaAMano() async {
+    final controller = TextEditingController(text: _testo);
+    controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.text.length);
+    final risultato = await showDialog<double>(
+      context: context,
+      builder: (ctx) {
+        void conferma() {
+          final v = double.tryParse(controller.text.trim().replaceAll(',', '.'));
+          Navigator.pop(ctx, v);
+        }
+
+        return AlertDialog(
+          title: Text(widget.etichetta),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            onSubmitted: (_) => conferma(),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
+            FilledButton(
+              onPressed: conferma,
+              style: FilledButton.styleFrom(minimumSize: const Size(80, 44)),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+    if (risultato == null || !mounted) return;
+    final v = widget.decimali ? risultato : risultato.roundToDouble();
+    setState(() => _valore = v.clamp(0.0, 9999.0));
+  }
+
   String get _testo {
     if (widget.decimali) {
       return _valore == _valore.roundToDouble()
@@ -77,6 +115,7 @@ class CampoNumeroState extends State<CampoNumero> {
         ),
         GestureDetector(
           onVerticalDragUpdate: _onDrag,
+          onDoubleTap: _modificaAMano,
           child: Container(
             width: 100,
             padding: const EdgeInsets.symmetric(vertical: 10),

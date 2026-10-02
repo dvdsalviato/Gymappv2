@@ -8,9 +8,9 @@ class AppColors {
   static const accento = Color(0xFF39FF14);
   static const grigioChip = Color(0xFFEDEDF0);
 
-  static const backgroundScuro = Color(0xFF0E0E10);
-  static const cardScuro = Color(0xFF1A1A1D);
-  static const grigioChipScuro = Color(0xFF26262A);
+  static const backgroundScuro = Color(0xFF0A0A0C);
+  static const cardScuro = Color(0xFF151519);
+  static const grigioChipScuro = Color(0xFF212126);
 }
 
 Color coloreCard(BuildContext context) =>
@@ -77,7 +77,7 @@ ThemeData _costruisci({
         backgroundColor: AppColors.accento,
         foregroundColor: Colors.black,
         minimumSize: const Size.fromHeight(56),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: const StadiumBorder(),
         textStyle: GoogleFonts.oswald(
             fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: 1),
       ),

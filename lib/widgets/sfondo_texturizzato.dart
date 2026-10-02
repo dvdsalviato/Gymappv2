@@ -32,6 +32,29 @@ class _TexturePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final colore = scuro ? Colors.white : Colors.black;
+    if (scuro) {
+      // Aloni verde lime negli angoli, come nelle grafiche "gym" scure.
+      final rect = Offset.zero & size;
+      const lime = Color(0xFF39FF14);
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = RadialGradient(
+            center: Alignment.bottomLeft,
+            radius: 1.0,
+            colors: [lime.withOpacity(0.10), lime.withOpacity(0)],
+          ).createShader(rect),
+      );
+      canvas.drawRect(
+        rect,
+        Paint()
+          ..shader = RadialGradient(
+            center: Alignment.topRight,
+            radius: 0.8,
+            colors: [lime.withOpacity(0.06), lime.withOpacity(0)],
+          ).createShader(rect),
+      );
+    }
     final linee = Paint()
       ..color = colore.withOpacity(scuro ? 0.035 : 0.03)
       ..strokeWidth = 1;
