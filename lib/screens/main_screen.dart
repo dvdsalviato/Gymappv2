@@ -75,7 +75,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_nome != null ? 'Gymapp V2, $_nome' : 'Gymapp V2')),
+      appBar: AppBar(title: Text(_nome != null ? 'Gymapp, $_nome' : 'Gymapp')),
       drawer: _buildDrawer(context),
       // Niente IndexedStack: ricreiamo la schermata a ogni cambio tab così i
       // dati (es. lo storico appena salvato) vengono ricaricati sempre.
@@ -104,7 +104,7 @@ class _MainScreenState extends State<MainScreen> {
                   child: Align(
                     alignment: Alignment.bottomLeft,
                     child: Text(
-                      'Gymapp V2',
+                      'Gymapp',
                       style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
                     ),
                   ),

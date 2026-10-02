@@ -19,7 +19,7 @@ class GymappApp extends StatelessWidget {
       valueListenable: ThemeController.modalita,
       builder: (context, modalita, _) {
         return MaterialApp(
-          title: 'Gymapp V2',
+          title: 'Gymapp',
           debugShowCheckedModeBanner: false,
           theme: buildLightTheme(),
           darkTheme: buildDarkTheme(),

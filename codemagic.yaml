@@ -9,8 +9,8 @@ workflows:
     scripts:
       - name: Genera i file Android
         script: flutter create --platforms=android .
-      - name: Rinomina app in Gymapp V2
-        script: perl -pi -e 's/android:label="[^"]*"/android:label="Gymapp V2"/' android/app/src/main/AndroidManifest.xml
+      - name: Rinomina app in Gymapp
+        script: perl -pi -e 's/android:label="[^"]*"/android:label="Gymapp"/' android/app/src/main/AndroidManifest.xml
       - name: Permesso internet
         script: |
           grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || \
