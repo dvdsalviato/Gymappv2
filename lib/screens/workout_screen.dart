@@ -98,7 +98,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     if (esercizioId != null) {
       ultimo = await DatabaseHelper.instance.getUltimoStorico(esercizioId);
       record = await DatabaseHelper.instance.getRecordPersonale(esercizioId);
-      ultimaVolta = await DatabaseHelper.instance.getSerieUltimaVolta(esercizioId);
+      ultimaVolta = await DatabaseHelper.instance.getSerieUltimaVolta(
+        esercizioId,
+        prima: GestoreSessione.inizioAllenamento,
+      );
     }
     if (!mounted) return;
     setState(() {
@@ -228,7 +231,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       _prossimaUltimaVolta = [];
       return;
     }
-    final serie = await DatabaseHelper.instance.getSerieUltimaVolta(id);
+    final serie = await DatabaseHelper.instance.getSerieUltimaVolta(
+      id,
+      prima: GestoreSessione.inizioAllenamento,
+    );
     if (mounted) {
       setState(() => _prossimaUltimaVolta = serie);
     }

@@ -205,24 +205,39 @@ class DatabaseHelper {
     await db.delete('peso_storico', where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Le serie dell'ultima volta (ultimo giorno precedente a oggi) in cui è
-  /// stato fatto questo esercizio, in ordine di serie.
-  Future<List<StoricoEntry>> getSerieUltimaVolta(int esercizioId) async {
+  /// Le serie dell'allenamento precedente in cui è stato fatto questo
+  /// esercizio (prima dell'allenamento in corso), in ordine di serie.
+  Future<List<StoricoEntry>> getSerieUltimaVolta(int esercizioId, {DateTime? prima}) async {
     final db = await database;
-    final oggi = DateTime.now().toIso8601String().substring(0, 10);
+    // "Prima" = l'inizio dell'allenamento in corso: così si vede sempre
+    // l'allenamento precedente, anche se lo ripeti più volte nello stesso giorno.
+    final limite = (prima ?? DateTime.now()).toIso8601String();
+    final ultima = await db.rawQuery(
+      'SELECT MAX(data) AS d FROM storico WHERE esercizio_id = ? AND data < ?',
+      [esercizioId, limite],
+    );
+    final fineTesto = ultima.isEmpty ? null : ultima.first['d'] as String?;
+    if (fineTesto == null) return [];
+    final fine = DateTime.tryParse(fineTesto);
+    if (fine == null) return [];
+    final inizioFinestra = fine.subtract(const Duration(hours: 3)).toIso8601String();
     final maps = await db.rawQuery(
       '''
       SELECT * FROM storico
-      WHERE esercizio_id = ?
-        AND substr(data, 1, 10) = (
-          SELECT MAX(substr(data, 1, 10)) FROM storico
-          WHERE esercizio_id = ? AND substr(data, 1, 10) < ?
-        )
+      WHERE esercizio_id = ? AND data > ? AND data <= ?
       ORDER BY serie_numero ASC, id ASC
       ''',
-      [esercizioId, esercizioId, oggi],
+      [esercizioId, inizioFinestra, fineTesto],
     );
-    return maps.map((m) => StoricoEntry.fromMap(m)).toList();
+    // Una sola riga per numero di serie (l'ultima registrata).
+    final perSerie = <int, StoricoEntry>{};
+    for (final m in maps) {
+      final e = StoricoEntry.fromMap(m);
+      perSerie[e.serieNumero] = e;
+    }
+    final lista = perSerie.values.toList();
+    lista.sort((a, b) => a.serieNumero.compareTo(b.serieNumero));
+    return lista;
   }
 
   /// Il carico più alto mai registrato per questo esercizio (record personale).

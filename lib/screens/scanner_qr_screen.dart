@@ -28,7 +28,7 @@ class _ScannerQrScreenState extends State<ScannerQrScreen> {
       case MobileScannerErrorCode.unsupported:
         return 'Questo dispositivo non supporta la scansione.';
       default:
-        return 'Non riesco ad aprire la fotocamera.\nRiprova più tardi.';
+        return 'Non riesco ad aprire la fotocamera.\nCodice: ${errore.errorCode.name}';
     }
   }
 
