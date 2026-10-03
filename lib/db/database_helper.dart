@@ -240,6 +240,36 @@ class DatabaseHelper {
     return lista;
   }
 
+  /// Numero totale di serie registrate.
+  Future<int> getTotaleSerie() async {
+    final db = await database;
+    final r = await db.rawQuery('SELECT COUNT(*) AS c FROM storico');
+    return Sqflite.firstIntValue(r) ?? 0;
+  }
+
+  /// Esercizi fatti da [inizio] in poi (l'allenamento appena concluso), con
+  /// il massimo carico che avevi prima, per riconoscere i record.
+  Future<List<Map<String, dynamic>>> getEserciziDaData(DateTime inizio) async {
+    final db = await database;
+    final iso = inizio.toIso8601String();
+    return await db.rawQuery(
+      '''
+      SELECT esercizi.nome AS nome, esercizi.categoria AS categoria,
+             COUNT(*) AS serie, MAX(storico.carico) AS carico_max,
+             SUM(storico.carico * storico.rep) AS volume,
+             (SELECT MAX(s2.carico) FROM storico s2
+                JOIN esercizi e2 ON e2.id = s2.esercizio_id
+               WHERE e2.nome = esercizi.nome AND s2.data < ?) AS record_prima
+      FROM storico
+      JOIN esercizi ON esercizi.id = storico.esercizio_id
+      WHERE storico.data >= ?
+      GROUP BY esercizi.nome, esercizi.categoria
+      ORDER BY MIN(storico.data) ASC
+      ''',
+      [iso, iso],
+    );
+  }
+
   /// Esercizi fatti negli ultimi [giorni] giorni, con numero di serie e
   /// carico massimo (raggruppati per nome).
   Future<List<Map<String, dynamic>>> getEserciziRecenti({int giorni = 7}) async {

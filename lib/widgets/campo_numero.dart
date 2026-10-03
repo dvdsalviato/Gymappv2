@@ -35,6 +35,9 @@ class CampoNumeroState extends State<CampoNumero> {
 
   double get valore => _valore;
 
+  /// Imposta il valore da fuori (es. il carico consigliato).
+  void imposta(double v) => setState(() => _valore = v);
+
   void _incrementa() {
     setState(() => _valore = (_valore + widget.step).clamp(0.0, 9999.0));
   }

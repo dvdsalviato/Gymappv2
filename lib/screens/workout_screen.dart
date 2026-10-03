@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../data/progressione.dart';
+import '../models/riepilogo.dart';
 import 'package:vibration/vibration.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
@@ -40,6 +42,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   StoricoEntry? _recordPersonale;
   List<StoricoEntry> _ultimaVolta = [];
   bool _caricamentoUltimo = true;
+  RiepilogoSessione? _riepilogo;
 
   Timer? _timer;
   int _secondiRimanenti = 0;
@@ -139,6 +142,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       builder: (_) => _RegistraSerieSheet(
         caricoIniziale: _caricoInserito,
         repIniziali: _repInseriti,
+        consiglio: _calcolaConsiglio(_esercizioCorrente, _numeroSerie),
       ),
     );
     if (risultato == null) return;
@@ -261,6 +265,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         _sessioneRegistrata = true;
         await DatabaseHelper.instance.insertSessione(widget.esercizi.first.schedaId);
       }
+      await _caricaRiepilogo();
+      if (!mounted) return;
       setState(() => _fase = FaseAllenamento.completato);
       return;
     }
@@ -418,6 +424,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
           const SizedBox(height: 16),
           _ultimaVoltaCard(_ultimaVolta, voce.numeroSerie),
+          ..._consiglioWidget(voce.esercizio, voce.numeroSerie),
           const SizedBox(height: 32),
           FilledButton.icon(
             onPressed: _premiVai,
@@ -476,6 +483,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           ),
           const SizedBox(height: 16),
           _ultimaVoltaCard(_ultimaVolta, _numeroSerie),
+          ..._consiglioWidget(_esercizioCorrente, _numeroSerie),
           const SizedBox(height: 32),
           FilledButton.icon(
             onPressed: _premiFineSerie,
@@ -582,24 +590,252 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     );
   }
 
+  Future<void> _caricaRiepilogo() async {
+    final inizio = GestoreSessione.inizioAllenamento ?? DateTime.now().subtract(const Duration(hours: 2));
+    try {
+      final righe = await DatabaseHelper.instance.getEserciziDaData(inizio);
+      final esercizi = righe.map((r) {
+        final max = (r['carico_max'] as num).toDouble();
+        final prima = (r['record_prima'] as num?)?.toDouble();
+        return EsercizioRiepilogo(
+          r['nome'] as String,
+          r['categoria'] as String,
+          r['serie'] as int,
+          max,
+          (r['volume'] as num?)?.toDouble() ?? 0,
+          prima != null && max > prima,
+        );
+      }).toList();
+      _riepilogo = RiepilogoSessione(widget.nomeScheda, DateTime.now().difference(inizio), esercizi);
+    } catch (_) {
+      _riepilogo = null;
+    }
+  }
+
+  /// Carico consigliato per la serie che stai per fare.
+  Suggerimento? _calcolaConsiglio(Esercizio esercizio, int numeroSerie) {
+    final target = esercizio.repTarget;
+    if (numeroSerie > 1 && _caricoInserito > 0 && identical(esercizio, _coda.first.esercizio)) {
+      return suggerisciCarico(_caricoInserito, _repInseriti, target);
+    }
+    for (final s in _ultimaVolta) {
+      if (s.serieNumero == numeroSerie) return suggerisciCarico(s.carico, s.rep, target);
+    }
+    return null;
+  }
+
+  List<Widget> _consiglioWidget(Esercizio esercizio, int numeroSerie) {
+    final c = _calcolaConsiglio(esercizio, numeroSerie);
+    if (c == null) return [];
+    return [
+      const SizedBox(height: 10),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.accento.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.accento.withOpacity(0.5)),
+        ),
+        child: Row(
+          children: [
+            Icon(c.aumento ? Icons.trending_up : Icons.lightbulb_outline, color: AppColors.accento, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Consigliato: ${formatKg(c.carico)} kg',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  Text(c.testo, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  String _durataTesto(Duration d) {
+    String due(int n) => n.toString().padLeft(2, '0');
+    final h = d.inHours;
+    final m = d.inMinutes % 60;
+    final s = d.inSeconds % 60;
+    return h > 0 ? '$h:${due(m)}:${due(s)}' : '${due(m)}:${due(s)}';
+  }
+
+  String _volumeTesto(double v) {
+    final n = v.round().toString();
+    final conPunti = n.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');
+    return '$conPunti kg';
+  }
+
+  Future<void> _copiaRiepilogo(RiepilogoSessione r) async {
+    final righe = <String>[
+      'Gymapp - ${r.nomeScheda}',
+      'Durata ${_durataTesto(r.durata)} · ${r.serie} serie · ${_volumeTesto(r.volume)}',
+      if (r.record > 0) 'Record battuti: ${r.record}',
+      if (r.muscoliLavorati.isNotEmpty) 'Muscoli: ${r.muscoliLavorati.join(', ')}',
+      '',
+      for (final e in r.esercizi)
+        '- ${e.nome}: ${e.serie} serie, max ${formatKg(e.caricoMax)} kg${e.record ? ' (record)' : ''}',
+      '',
+      'Do it better 💪',
+    ];
+    await Clipboard.setData(ClipboardData(text: righe.join('\n')));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Riepilogo copiato: incollalo dove vuoi')),
+      );
+    }
+  }
+
+  Widget _statRiepilogo(String valore, String etichetta) {
+    return Expanded(
+      child: Column(
+        children: [
+          Text(valore, style: GoogleFonts.oswald(fontSize: 24, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(etichetta, style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+
+  Widget _cardRiepilogo(RiepilogoSessione r) {
+    final muscoliLavorati = r.muscoliLavorati;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        color: coloreSuperficie(context),
+        borderRadius: BorderRadius.circular(32),
+        border: Border.all(color: AppColors.accento.withOpacity(0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset('assets/logo.png', width: 48, height: 48, fit: BoxFit.cover),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ALLENAMENTO COMPLETATO',
+                      style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 1.3),
+                    ),
+                    Text(
+                      r.nomeScheda,
+                      style: GoogleFonts.oswald(fontSize: 24, fontWeight: FontWeight.w700),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              _statRiepilogo(_durataTesto(r.durata), 'DURATA'),
+              _statRiepilogo('${r.serie}', 'SERIE'),
+              _statRiepilogo(_volumeTesto(r.volume), 'VOLUME'),
+              _statRiepilogo('${r.record}', 'RECORD'),
+            ],
+          ),
+          if (muscoliLavorati.isNotEmpty) ...[
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final m in muscoliLavorati)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.accento.withOpacity(0.14),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(m, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 18),
+          for (final e in r.esercizi)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              child: Row(
+                children: [
+                  Expanded(child: Text(e.nome, style: const TextStyle(fontWeight: FontWeight.w600))),
+                  Text(
+                    '${e.serie} serie · ${formatKg(e.caricoMax)} kg',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                  ),
+                  if (e.record) const Padding(padding: EdgeInsets.only(left: 6), child: Text('🏆')),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCompletato() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _suggerimento('Grande, allenamento completato! Sei una macchina 💪'),
-        const SizedBox(height: 24),
-        const Icon(Icons.check_circle, color: AppColors.accento, size: 72),
-        const SizedBox(height: 16),
-        const Text(
-          'Allenamento completato!',
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 32),
-        FilledButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Torna alla scheda'),
-        ),
-      ],
+    final r = _riepilogo;
+    if (r == null || r.esercizi.isEmpty) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _suggerimento('Grande, allenamento completato! Sei una macchina 💪'),
+          const SizedBox(height: 24),
+          const Icon(Icons.check_circle, color: AppColors.accento, size: 72),
+          const SizedBox(height: 16),
+          const Text(
+            'Allenamento completato!',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 32),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Torna alla scheda'),
+          ),
+        ],
+      );
+    }
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _suggerimento('Grande, allenamento completato! Sei una macchina 💪'),
+          const SizedBox(height: 16),
+          _cardRiepilogo(r),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () => _copiaRiepilogo(r),
+            icon: const Icon(Icons.copy),
+            label: const Text('Copia riepilogo'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: const StadiumBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Torna alla scheda'),
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
     );
   }
 
@@ -750,8 +986,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
 class _RegistraSerieSheet extends StatefulWidget {
   final double caricoIniziale;
   final int repIniziali;
+  final Suggerimento? consiglio;
 
-  const _RegistraSerieSheet({required this.caricoIniziale, required this.repIniziali});
+  const _RegistraSerieSheet({
+    required this.caricoIniziale,
+    required this.repIniziali,
+    this.consiglio,
+  });
 
   @override
   State<_RegistraSerieSheet> createState() => _RegistraSerieSheetState();
@@ -790,6 +1031,33 @@ class _RegistraSerieSheetState extends State<_RegistraSerieSheet> {
             'Trascina su/giù, usa le frecce o tocca due volte il numero per scriverlo',
             style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
           ),
+          if (widget.consiglio != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+              decoration: BoxDecoration(
+                color: AppColors.accento.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: AppColors.accento.withOpacity(0.6)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.lightbulb_outline, color: AppColors.accento, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      widget.consiglio!.testo,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _caricoKey.currentState?.imposta(widget.consiglio!.carico),
+                    child: Text('Usa ${formatKg(widget.consiglio!.carico)}'),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,

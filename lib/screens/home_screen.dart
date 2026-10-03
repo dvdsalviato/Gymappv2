@@ -1,15 +1,19 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import '../data/medaglie.dart';
+import '../data/statistiche.dart';
 import '../db/database_helper.dart';
 import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
 import 'assistente_screen.dart';
 import 'calendario_screen.dart';
 import 'mappa_muscolare_screen.dart';
+import 'medaglie_screen.dart';
 import 'workout_screen.dart';
 
 class _Notizia {
@@ -54,6 +58,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _serie7 = 0;
   double? _peso;
   double? _deltaPeso;
+  StatisticheUtente? _stat;
+  int _medaglieSbloccate = 0;
   List<_Notizia> _notizie = [];
   bool _notizieCaricamento = true;
   bool _notizieErrore = false;
@@ -89,13 +95,53 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       peso = (profilo?['peso_kg'] as num?)?.toDouble();
     }
+    final stat = await caricaStatistiche();
+    final esito = await aggiornaMedaglie(stat);
     if (!mounted) return;
     setState(() {
       _presenze = presenze;
       _serie7 = volumi.values.fold(0, (a, b) => a + b);
       _peso = peso;
       _deltaPeso = delta;
+      _stat = stat;
+      _medaglieSbloccate = esito.sbloccate.length;
     });
+    if (esito.nuove.isNotEmpty) {
+      final testo = esito.nuove.length == 1
+          ? '🏅 Nuova medaglia: ${esito.nuove.first.titolo}'
+          : '🏅 ${esito.nuove.length} nuove medaglie sbloccate!';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(testo)));
+    }
+  }
+
+  Future<void> _cambiaObiettivo() async {
+    final corrente = _stat?.obiettivo ?? obiettivoPredefinito;
+    final scelto = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Allenamenti a settimana'),
+        content: Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (var i = 1; i <= 7; i++)
+              ChoiceChip(
+                label: Text('$i'),
+                selected: i == corrente,
+                selectedColor: AppColors.accento,
+                labelStyle: TextStyle(
+                  color: i == corrente ? Colors.black : null,
+                  fontWeight: FontWeight.w700,
+                ),
+                onSelected: (_) => Navigator.pop(ctx, i),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (scelto == null) return;
+    await salvaObiettivoSettimanale(scelto);
+    await _carica();
   }
 
   String _decodifica(String s) {
@@ -396,6 +442,119 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _obiettivoCard() {
+    final s = _stat;
+    if (s == null) return const SizedBox.shrink();
+    final fatto = s.allenamentiSettimana;
+    final ob = s.obiettivo;
+    final progresso = ob == 0 ? 0.0 : (fatto / ob).clamp(0.0, 1.0);
+    final mancano = ob - fatto;
+    return GestureDetector(
+      onTap: _cambiaObiettivo,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: coloreSuperficie(context),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 96,
+              height: 96,
+              child: CustomPaint(
+                painter: _AnelloPainter(progresso.toDouble()),
+                child: Center(
+                  child: Text('$fatto/$ob', style: GoogleFonts.oswald(fontSize: 24, fontWeight: FontWeight.w700)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 18),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'OBIETTIVO SETTIMANALE',
+                    style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 1.3),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    mancano <= 0
+                        ? 'Obiettivo raggiunto! 🔥'
+                        : (mancano == 1 ? 'Ti manca 1 allenamento' : 'Ti mancano $mancano allenamenti'),
+                    style: GoogleFonts.oswald(fontSize: 20, fontWeight: FontWeight.w600, height: 1.15),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('Tocca per cambiarlo', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _traguardiCard() {
+    final s = _stat;
+    if (s == null) return const SizedBox.shrink();
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => const MedaglieScreen()));
+        if (mounted) _carica();
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: coloreSuperficie(context),
+          borderRadius: BorderRadius.circular(28),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+              child: const Icon(Icons.local_fire_department, color: Colors.black),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    s.settimane == 0
+                        ? 'Inizia la tua serie'
+                        : '${s.settimane} ${s.settimane == 1 ? 'settimana' : 'settimane'} di fila',
+                    style: GoogleFonts.oswald(fontSize: 20, fontWeight: FontWeight.w600),
+                  ),
+                  Text(
+                    s.settimane == 0 ? 'Raggiungi l\'obiettivo questa settimana' : 'con l\'obiettivo raggiunto',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '$_medaglieSbloccate/${medaglie.length}',
+                  style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.accento),
+                ),
+                Text('MEDAGLIE', style: TextStyle(color: Colors.grey.shade500, fontSize: 10, letterSpacing: 1.2)),
+              ],
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade600),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _scorciatoia(IconData icona, String testo, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
@@ -558,9 +717,13 @@ class _HomeScreenState extends State<HomeScreen> {
           _cardAllenamento(),
           const SizedBox(height: 14),
           _etichetta('QUESTA SETTIMANA'),
+          _obiettivoCard(),
+          const SizedBox(height: 10),
           _settimana(),
           const SizedBox(height: 10),
           _panoramica(),
+          const SizedBox(height: 10),
+          _traguardiCard(),
           const SizedBox(height: 14),
           _etichetta('SCORCIATOIE'),
           _scorciatoie(),
@@ -574,4 +737,37 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+/// Anello di avanzamento (obiettivo settimanale).
+class _AnelloPainter extends CustomPainter {
+  final double progresso; // da 0 a 1
+  _AnelloPainter(this.progresso);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final centro = Offset(size.width / 2, size.height / 2);
+    final raggio = size.width / 2 - 8;
+    final traccia = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 11
+      ..color = Colors.white.withOpacity(0.08);
+    canvas.drawCircle(centro, raggio, traccia);
+    if (progresso <= 0) return;
+    final arco = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 11
+      ..strokeCap = StrokeCap.round
+      ..color = AppColors.accento;
+    canvas.drawArc(
+      Rect.fromCircle(center: centro, radius: raggio),
+      -math.pi / 2,
+      2 * math.pi * progresso,
+      false,
+      arco,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_AnelloPainter old) => old.progresso != progresso;
 }

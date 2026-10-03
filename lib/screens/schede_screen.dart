@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'crea_scheda_ai_screen.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
@@ -192,6 +193,14 @@ class _SchedeScreenState extends State<SchedeScreen> {
     );
   }
 
+  Future<void> _creaConAi() async {
+    final creata = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const CreaSchedaAiScreen()),
+    );
+    if (creata == true) await _carica();
+  }
+
   Future<void> _importaDaQr() async {
     final testo = await Navigator.push<String>(
       context,
@@ -344,6 +353,18 @@ class _SchedeScreenState extends State<SchedeScreen> {
               onPressed: _nuovaScheda,
               icon: const Icon(Icons.add),
               label: const Text('Nuova scheda'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _creaConAi,
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('Crea scheda con AI'),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(52),
+                shape: const StadiumBorder(),
+                foregroundColor: AppColors.accento,
+                side: BorderSide(color: AppColors.accento.withOpacity(0.7)),
+              ),
             ),
           ],
         ),
