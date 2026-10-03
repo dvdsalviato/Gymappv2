@@ -60,6 +60,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   void initState() {
     super.initState();
     if (widget.ripresaDa != null) {
+      GestoreSessione.inizioAllenamento ??= DateTime.now();
       _coda = List.of(widget.ripresaDa!.coda);
       _fase = widget.ripresaDa!.fase;
       if (_fase == FaseAllenamento.riposo) {
@@ -67,6 +68,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
         _secondiRimanenti = widget.ripresaDa!.secondiRimanenti;
       }
     } else {
+      GestoreSessione.inizioAllenamento = DateTime.now();
       _coda = widget.esercizi.map((e) => VoceCoda(e, 1)).toList();
     }
     _caricaUltimoStorico();
@@ -79,6 +81,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    // Se non è stato messo in pausa, l'allenamento è finito (o abbandonato).
+    if (GestoreSessione.inPausa == null) GestoreSessione.inizioAllenamento = null;
     super.dispose();
   }
 

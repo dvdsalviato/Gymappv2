@@ -19,6 +19,10 @@ Color coloreCard(BuildContext context) =>
 Color coloreChip(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark ? AppColors.grigioChipScuro : AppColors.grigioChip;
 
+/// Colore delle card "rialzate" (un grigio-nero leggermente più chiaro dello sfondo).
+Color coloreSuperficie(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E24) : Colors.white;
+
 const _transizioniFluide = PageTransitionsTheme(
   builders: {
     TargetPlatform.android: CupertinoPageTransitionsBuilder(),

@@ -36,4 +36,8 @@ class SessioneAllenamentoInPausa {
 
 class GestoreSessione {
   static SessioneAllenamentoInPausa? inPausa;
+
+  /// Quando è iniziato l'allenamento attuale (anche se in pausa). Serve alla
+  /// Home per mostrare il timer. Torna a null quando l'allenamento finisce.
+  static DateTime? inizioAllenamento;
 }

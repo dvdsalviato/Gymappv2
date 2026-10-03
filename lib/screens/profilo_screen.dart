@@ -4,7 +4,12 @@ import '../theme/app_theme.dart';
 import '../widgets/campo_numero.dart';
 
 class ProfiloScreen extends StatefulWidget {
-  const ProfiloScreen({super.key});
+  /// Se true la schermata non ha una propria barra in alto (è una scheda
+  /// della barra principale).
+  final bool incorporata;
+  final VoidCallback? onSalvato;
+
+  const ProfiloScreen({super.key, this.incorporata = false, this.onSalvato});
 
   @override
   State<ProfiloScreen> createState() => _ProfiloScreenState();
@@ -71,6 +76,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Profilo salvato')),
       );
+      widget.onSalvato?.call();
     }
   }
 
@@ -109,9 +115,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Il mio profilo')),
-      body: _loading
+    final corpo = _loading
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: SingleChildScrollView(
@@ -181,7 +185,11 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                   ],
                 ),
               ),
-            ),
+            );
+    if (widget.incorporata) return corpo;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Il mio profilo')),
+      body: corpo,
     );
   }
 }

@@ -25,6 +25,14 @@ class DatabaseHelper {
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
+      onOpen: (db) async {
+        await db.execute(
+          'CREATE TABLE IF NOT EXISTS peso_storico ('
+          'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+          'peso_kg REAL NOT NULL, '
+          'data TEXT NOT NULL)',
+        );
+      },
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
         await db.execute('DROP TABLE IF EXISTS profilo');
@@ -178,6 +186,23 @@ class DatabaseHelper {
     );
     if (maps.isEmpty) return null;
     return StoricoEntry.fromMap(maps.first);
+  }
+
+  // ---- PESO CORPOREO ----
+
+  Future<int> insertPeso(double kg, DateTime data) async {
+    final db = await database;
+    return await db.insert('peso_storico', {'peso_kg': kg, 'data': data.toIso8601String()});
+  }
+
+  Future<List<Map<String, dynamic>>> getPesi() async {
+    final db = await database;
+    return await db.query('peso_storico', orderBy: 'data ASC, id ASC');
+  }
+
+  Future<void> deletePeso(int id) async {
+    final db = await database;
+    await db.delete('peso_storico', where: 'id = ?', whereArgs: [id]);
   }
 
   /// Le serie dell'ultima volta (ultimo giorno precedente a oggi) in cui è

@@ -5,6 +5,8 @@ import '../theme/theme_controller.dart';
 import 'assistente_screen.dart';
 import 'calendario_screen.dart';
 import 'mappa_muscolare_screen.dart';
+import 'home_screen.dart';
+import 'peso_screen.dart';
 import 'profilo_screen.dart';
 import 'schede_screen.dart';
 import 'storico_screen.dart';
@@ -76,24 +78,48 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(_nome != null ? 'Gymapp, $_nome' : 'Gymapp')),
+      appBar: AppBar(title: const Text('GYMAPP')),
       drawer: _buildDrawer(context),
       // Niente IndexedStack: ricreiamo la schermata a ogni cambio tab così i
       // dati (es. lo storico appena salvato) vengono ricaricati sempre.
-      body: _indice == 0 ? const SchedeScreen() : const StoricoScreen(),
+      body: _corpo(),
       bottomNavigationBar: _barraNavigazione(context),
     );
+  }
+
+  Widget _corpo() {
+    switch (_indice) {
+      case 0:
+        return HomeScreen(nome: _nome, onVaiAlleSchede: () => setState(() => _indice = 1));
+      case 1:
+        return const SchedeScreen();
+      case 2:
+        return const StoricoScreen();
+      case 3:
+        return const PesoScreen();
+      default:
+        return ProfiloScreen(incorporata: true, onSalvato: _aggiornaNome);
+    }
+  }
+
+  Future<void> _aggiornaNome() async {
+    final profilo = await DatabaseHelper.instance.getProfilo();
+    final nome = (profilo?['nome'] as String?)?.trim();
+    if (mounted) setState(() => _nome = (nome != null && nome.isNotEmpty) ? nome : null);
   }
 
   /// Barra in basso a pillola, con icone tonde: quella attiva diventa verde fluo.
   Widget _barraNavigazione(BuildContext context) {
     final voci = [
+      (Icons.home_outlined, Icons.home, 'Home'),
       (Icons.inventory_2_outlined, Icons.inventory_2, 'Schede'),
       (Icons.bar_chart_outlined, Icons.bar_chart, 'Storico'),
+      (Icons.monitor_weight_outlined, Icons.monitor_weight, 'Peso'),
+      (Icons.person_outline, Icons.person, 'Profilo'),
     ];
     return SafeArea(
       child: Container(
-        margin: const EdgeInsets.fromLTRB(56, 6, 56, 14),
+        margin: const EdgeInsets.fromLTRB(20, 6, 20, 14),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: coloreCard(context),
@@ -112,8 +138,8 @@ class _MainScreenState extends State<MainScreen> {
                   onTap: () => setState(() => _indice = i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    width: 54,
-                    height: 54,
+                    width: 50,
+                    height: 50,
                     decoration: BoxDecoration(
                       color: _indice == i ? AppColors.accento : Colors.transparent,
                       shape: BoxShape.circle,
@@ -160,10 +186,7 @@ class _MainScreenState extends State<MainScreen> {
                   title: const Text('Il mio profilo'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ProfiloScreen()),
-                    ).then((_) => _caricaNome());
+                    setState(() => _indice = 4);
                   },
                 ),
                 ListTile(
