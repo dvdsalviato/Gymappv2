@@ -240,6 +240,25 @@ class DatabaseHelper {
     return lista;
   }
 
+  /// Esercizi fatti negli ultimi [giorni] giorni, con numero di serie e
+  /// carico massimo (raggruppati per nome).
+  Future<List<Map<String, dynamic>>> getEserciziRecenti({int giorni = 7}) async {
+    final db = await database;
+    final daData = DateTime.now().subtract(Duration(days: giorni)).toIso8601String();
+    return await db.rawQuery(
+      '''
+      SELECT esercizi.nome AS nome, esercizi.categoria AS categoria,
+             COUNT(*) AS serie, MAX(storico.carico) AS carico_max
+      FROM storico
+      JOIN esercizi ON esercizi.id = storico.esercizio_id
+      WHERE storico.data >= ?
+      GROUP BY esercizi.nome, esercizi.categoria
+      ORDER BY serie DESC
+      ''',
+      [daData],
+    );
+  }
+
   /// Il carico più alto mai registrato per questo esercizio (record personale).
   Future<StoricoEntry?> getRecordPersonale(int esercizioId) async {
     final db = await database;
