@@ -84,9 +84,9 @@ class NotificaAllenamento {
       if (!_servizioAttivo) {
         _servizioAttivo = true;
         await _android?.startForegroundService(
-          _id,
-          titolo,
-          testo,
+          id: _id,
+          title: titolo,
+          body: testo,
           notificationDetails: dettagli,
           startType: AndroidServiceStartType.startNotSticky,
         );
@@ -110,7 +110,7 @@ class NotificaAllenamento {
     _servizioAttivo = false;
     try {
       await _android?.stopForegroundService();
-      await _android?.cancel(_id);
+      await _android?.cancel(id: _id);
     } catch (e) {
       debugPrint('Chiusura notifica: $e');
     }
