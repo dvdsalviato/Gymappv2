@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/muscoli.dart';
+import '../data/tempo.dart';
 import '../db/database_helper.dart';
 import '../theme/app_theme.dart';
 
@@ -285,7 +286,9 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                         Expanded(child: Text(r['nome'] as String, style: const TextStyle(fontWeight: FontWeight.w600))),
                         const SizedBox(width: 8),
                         Text(
-                          '${r['serie']} serie · ${_fmtKg(r['carico_max'] as num)} kg',
+                          (r['a_tempo'] as int?) == 1
+                              ? '${r['serie']} serie · ${formattaDurata((r['rep_tot'] as num).toInt())}'
+                              : '${r['serie']} serie · ${_fmtKg(r['carico_max'] as num)} kg',
                           style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                         ),
                       ],

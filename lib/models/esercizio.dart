@@ -9,6 +9,9 @@ class Esercizio {
   final String? note;
   final String categoria;
 
+  /// Se vero l'esercizio è a tempo: [repTarget] contiene la durata in secondi.
+  final bool aTempo;
+
   Esercizio({
     this.id,
     required this.schedaId,
@@ -19,6 +22,7 @@ class Esercizio {
     required this.riposoSecondi,
     this.note,
     this.categoria = 'Altro',
+    this.aTempo = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -32,6 +36,7 @@ class Esercizio {
       'riposo_secondi': riposoSecondi,
       'note': note,
       'categoria': categoria,
+      'a_tempo': aTempo ? 1 : 0,
     };
   }
 
@@ -46,6 +51,7 @@ class Esercizio {
       riposoSecondi: map['riposo_secondi'] as int,
       note: map['note'] as String?,
       categoria: (map['categoria'] as String?) ?? 'Altro',
+      aTempo: (map['a_tempo'] as int?) == 1,
     );
   }
 }

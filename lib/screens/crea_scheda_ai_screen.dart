@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/catalogo_esercizi.dart';
+import '../data/tempo.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
 import '../models/scheda.dart';
@@ -73,6 +74,7 @@ class _CreaSchedaAiScreenState extends State<CreaSchedaAiScreen> {
       '{"nome": "Nome scheda", "esercizi": [{"nome": "...", "serie": 3, "rep": 10, "riposo": 90, "nota": "..."}]}',
       'Regole: usa SOLO nomi di esercizi presi ESATTAMENTE dall\'elenco sotto. Da 5 a 9 esercizi, in ordine di esecuzione (prima i multiarticolari).',
       '"serie" da 2 a 5, "rep" da 5 a 20, "riposo" in secondi da 45 a 180, "nota" facoltativa (massimo 60 caratteri).',
+      'Per gli esercizi a tempo (cardio, plank) usa "tempo": true e "durata" in secondi al posto di "rep".',
       'Adatta volume e scelta degli esercizi a livello, obiettivo e durata indicati.',
       'Elenco esercizi disponibili, per categoria:',
       elenco,
@@ -158,12 +160,16 @@ class _CreaSchedaAiScreenState extends State<CreaSchedaAiScreen> {
         if (nomeGrezzo == null || nomeGrezzo.isEmpty) continue;
         final cat = _trovaNelCatalogo(nomeGrezzo);
         final nota = (v['nota'] as String?)?.trim();
+        final predefinita = (cat != null && cat.durataSecondi > 0) ? cat.durataSecondi : 0;
+        final aTempo = v['tempo'] == true || (predefinita > 0 && v['rep'] == null);
+        final durata = _intLimitato(v['durata'], 10, 3600, predefinita > 0 ? predefinita : 60);
         esercizi.add(Esercizio(
           schedaId: -1,
           nome: cat?.nome ?? nomeGrezzo,
           ordine: esercizi.length,
           serieTotali: _intLimitato(v['serie'], 1, 8, 3),
-          repTarget: _intLimitato(v['rep'], 1, 30, 10),
+          repTarget: aTempo ? durata : _intLimitato(v['rep'], 1, 30, 10),
+          aTempo: aTempo,
           riposoSecondi: _intLimitato(v['riposo'], 0, 300, 90),
           categoria: cat?.categoria ?? 'Altro',
           note: (nota == null || nota.isEmpty) ? null : nota,
@@ -207,6 +213,7 @@ class _CreaSchedaAiScreenState extends State<CreaSchedaAiScreen> {
           riposoSecondi: e.riposoSecondi,
           categoria: e.categoria,
           note: e.note,
+          aTempo: e.aTempo,
         ),
       );
     }
@@ -348,7 +355,7 @@ class _CreaSchedaAiScreenState extends State<CreaSchedaAiScreen> {
                       children: [
                         Text(esercizi[i].nome, style: const TextStyle(fontWeight: FontWeight.w700)),
                         Text(
-                          '${esercizi[i].serieTotali} x ${esercizi[i].repTarget} · riposo ${esercizi[i].riposoSecondi}s · ${esercizi[i].categoria}',
+                          '${esercizi[i].serieTotali} x ${esercizi[i].aTempo ? formattaDurata(esercizi[i].repTarget) : '${esercizi[i].repTarget}'} · riposo ${esercizi[i].riposoSecondi}s · ${esercizi[i].categoria}',
                           style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                         ),
                         if (esercizi[i].note != null)

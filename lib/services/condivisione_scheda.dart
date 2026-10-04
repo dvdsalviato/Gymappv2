@@ -13,6 +13,7 @@ String codificaScheda(String nomeScheda, List<Esercizio> esercizi) {
               'r': e.repTarget,
               'rp': e.riposoSecondi,
               'c': e.categoria,
+              if (e.aTempo) 't': 1,
               if (e.note != null && e.note!.isNotEmpty) 'no': e.note,
             })
         .toList(),
@@ -49,6 +50,7 @@ SchedaImportata? decodificaScheda(String testo) {
         riposoSecondi: m['rp'] as int,
         categoria: (m['c'] as String?) ?? 'Altro',
         note: m['no'] as String?,
+        aTempo: (m['t'] as int?) == 1,
       ));
     }
     if (esercizi.isEmpty) return null;

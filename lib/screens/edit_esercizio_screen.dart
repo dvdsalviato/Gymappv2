@@ -29,6 +29,9 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
   late TextEditingController _riposoCtrl;
   late TextEditingController _noteCtrl;
   late String _categoria;
+  late bool _aTempo;
+  late TextEditingController _minCtrl;
+  late TextEditingController _secCtrl;
 
   @override
   void initState() {
@@ -40,6 +43,10 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
     _riposoCtrl = TextEditingController(text: e != null ? e.riposoSecondi.toString() : '');
     _noteCtrl = TextEditingController(text: e?.note ?? '');
     _categoria = e?.categoria ?? 'Altro';
+    _aTempo = e?.aTempo ?? false;
+    final durata = (e != null && e.aTempo) ? e.repTarget : 60;
+    _minCtrl = TextEditingController(text: (durata ~/ 60).toString());
+    _secCtrl = TextEditingController(text: (durata % 60).toString());
   }
 
   @override
@@ -49,6 +56,8 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
     _repCtrl.dispose();
     _riposoCtrl.dispose();
     _noteCtrl.dispose();
+    _minCtrl.dispose();
+    _secCtrl.dispose();
     super.dispose();
   }
 
@@ -57,16 +66,32 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
 
     final testoNote = _noteCtrl.text.trim();
 
+    var target = 0;
+    if (_aTempo) {
+      final minuti = int.tryParse(_minCtrl.text.trim()) ?? 0;
+      final secondi = int.tryParse(_secCtrl.text.trim()) ?? 0;
+      target = minuti * 60 + secondi;
+      if (target < 5) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('La durata deve essere di almeno 5 secondi')),
+        );
+        return;
+      }
+    } else {
+      target = int.parse(_repCtrl.text);
+    }
+
     final nuovo = Esercizio(
       id: widget.esercizio?.id,
       schedaId: widget.schedaId,
       nome: _nomeCtrl.text.trim(),
       ordine: widget.esercizio?.ordine ?? widget.ordineSuggerito,
       serieTotali: int.parse(_serieCtrl.text),
-      repTarget: int.parse(_repCtrl.text),
+      repTarget: target,
       riposoSecondi: int.parse(_riposoCtrl.text),
       note: testoNote.isEmpty ? null : testoNote,
       categoria: _categoria,
+      aTempo: _aTempo,
     );
 
     if (widget.esercizio == null) {
@@ -111,6 +136,11 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
                         setState(() {
                           _nomeCtrl.text = scelto.nome;
                           _categoria = scelto.categoria;
+                          _aTempo = scelto.durataSecondi > 0;
+                          if (_aTempo) {
+                            _minCtrl.text = (scelto.durataSecondi ~/ 60).toString();
+                            _secCtrl.text = (scelto.durataSecondi % 60).toString();
+                          }
                         });
                       }
                     },
@@ -154,15 +184,52 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
                 validator: _validaIntero,
               ),
               const SizedBox(height: 14),
-              TextFormField(
-                controller: _repCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Ripetizioni target',
-                  hintText: 'es. 10',
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(value: false, label: Text('Ripetizioni'), icon: Icon(Icons.repeat)),
+                    ButtonSegment(value: true, label: Text('A tempo'), icon: Icon(Icons.timer_outlined)),
+                  ],
+                  selected: {_aTempo},
+                  onSelectionChanged: (s) => setState(() => _aTempo = s.first),
+                  style: SegmentedButton.styleFrom(
+                    selectedBackgroundColor: AppColors.accento,
+                    selectedForegroundColor: Colors.black,
+                  ),
                 ),
-                keyboardType: TextInputType.number,
-                validator: _validaIntero,
               ),
+              const SizedBox(height: 14),
+              if (_aTempo)
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _minCtrl,
+                        decoration: const InputDecoration(labelText: 'Minuti', hintText: 'es. 5'),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _secCtrl,
+                        decoration: const InputDecoration(labelText: 'Secondi', hintText: 'es. 45'),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                  ],
+                )
+              else
+                TextFormField(
+                  controller: _repCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Ripetizioni target',
+                    hintText: 'es. 10',
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: _validaIntero,
+                ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _riposoCtrl,

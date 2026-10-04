@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../data/tempo.dart';
 import '../db/database_helper.dart';
 import '../theme/app_theme.dart';
 
@@ -48,6 +49,18 @@ class _StoricoScreenState extends State<StoricoScreen> {
     return risultato;
   }
 
+  bool _eATempo(Map<String, dynamic> m) => (m['a_tempo'] as int?) == 1;
+
+  double _valoreGrafico(Map<String, dynamic> m) {
+    final v = _eATempo(m) ? m['rep'] : m['carico'];
+    return (v as num).toDouble();
+  }
+
+  String _testoSerie(Map<String, dynamic> m) {
+    if (_eATempo(m)) return formattaDurata((m['rep'] as num).toInt());
+    return '${m['carico']} kg x ${m['rep']}';
+  }
+
   Widget _grafico(List<Map<String, dynamic>> serie) {
     // La lista arriva più-recente-prima: la giriamo per avere l'asse del
     // tempo che scorre da sinistra (vecchio) a destra (recente).
@@ -63,7 +76,7 @@ class _StoricoScreenState extends State<StoricoScreen> {
     }
     final spots = [
       for (int i = 0; i < cronologico.length; i++)
-        FlSpot(i.toDouble(), (cronologico[i]['carico'] as num).toDouble()),
+        FlSpot(i.toDouble(), _valoreGrafico(cronologico[i])),
     ];
     return SizedBox(
       height: 90,
@@ -150,12 +163,12 @@ class _StoricoScreenState extends State<StoricoScreen> {
                                             Builder(
                                               builder: (context) {
                                                 final record = serie.reduce(
-                                                  (a, b) => (a['carico'] as num) >= (b['carico'] as num) ? a : b,
+                                                  (a, b) => _valoreGrafico(a) >= _valoreGrafico(b) ? a : b,
                                                 );
                                                 return Padding(
                                                   padding: const EdgeInsets.only(top: 2, bottom: 4),
                                                   child: Text(
-                                                    '🏆 Record: ${record['carico']} kg x ${record['rep']}',
+                                                    '🏆 Record: ${_testoSerie(record)}',
                                                     style: const TextStyle(
                                                       color: AppColors.accento,
                                                       fontWeight: FontWeight.w600,
@@ -181,7 +194,7 @@ class _StoricoScreenState extends State<StoricoScreen> {
                                                           ),
                                                         ),
                                                         Text(
-                                                          '${v['carico']} kg x ${v['rep']}',
+                                                          _testoSerie(v),
                                                           style: const TextStyle(fontWeight: FontWeight.w600),
                                                         ),
                                                       ],

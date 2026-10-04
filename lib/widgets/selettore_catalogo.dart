@@ -67,6 +67,9 @@ class _CatalogoSheetState extends State<_CatalogoSheet> {
                             children: cat.value.map((e) {
                               return ListTile(
                                 title: Text(e.nome),
+                                trailing: e.durataSecondi > 0
+                                    ? const Icon(Icons.timer_outlined, size: 20)
+                                    : null,
                                 onTap: () => Navigator.pop(context, e),
                               );
                             }).toList(),

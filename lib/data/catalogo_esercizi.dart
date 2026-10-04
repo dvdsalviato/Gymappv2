@@ -2,7 +2,10 @@ class EsercizioCatalogo {
   final String nome;
   final String categoria;
 
-  const EsercizioCatalogo(this.nome, this.categoria);
+  /// Se maggiore di 0 l'esercizio è a tempo (durata predefinita in secondi).
+  final int durataSecondi;
+
+  const EsercizioCatalogo(this.nome, this.categoria, [this.durataSecondi = 0]);
 }
 
 /// Categorie usate sia nel catalogo sia nella mappa muscolare.
@@ -14,6 +17,7 @@ const List<String> categorieEsercizio = [
   'Bicipiti',
   'Tricipiti',
   'Core',
+  'Cardio',
   'Altro',
 ];
 
@@ -164,8 +168,8 @@ const List<EsercizioCatalogo> catalogoEsercizi = [
   EsercizioCatalogo('Tricep extension machine', 'Tricipiti'),
 
   // ---- Core ----
-  EsercizioCatalogo('Plank', 'Core'),
-  EsercizioCatalogo('Plank laterale', 'Core'),
+  EsercizioCatalogo('Plank', 'Core', 45),
+  EsercizioCatalogo('Plank laterale', 'Core', 30),
   EsercizioCatalogo('Side plank con rotazione', 'Core'),
   EsercizioCatalogo('Crunch', 'Core'),
   EsercizioCatalogo('Crunch inverso', 'Core'),
@@ -184,4 +188,17 @@ const List<EsercizioCatalogo> catalogoEsercizi = [
   EsercizioCatalogo('Dead bug', 'Core'),
   EsercizioCatalogo('Hollow body hold', 'Core'),
   EsercizioCatalogo('Pallof press', 'Core'),
+  EsercizioCatalogo('Hollow hold', 'Core', 30),
+  EsercizioCatalogo('Dead hang', 'Schiena', 30),
+  EsercizioCatalogo('Wall sit', 'Gambe', 45),
+
+  // ---- Cardio (a tempo) ----
+  EsercizioCatalogo('Tapis roulant', 'Cardio', 600),
+  EsercizioCatalogo('Camminata inclinata', 'Cardio', 600),
+  EsercizioCatalogo('Cyclette', 'Cardio', 600),
+  EsercizioCatalogo('Ellittica', 'Cardio', 600),
+  EsercizioCatalogo('Vogatore', 'Cardio', 300),
+  EsercizioCatalogo('Stair climber', 'Cardio', 600),
+  EsercizioCatalogo('Corda per saltare', 'Cardio', 180),
+  EsercizioCatalogo('Assault bike', 'Cardio', 300),
 ];

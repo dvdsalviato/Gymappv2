@@ -32,6 +32,12 @@ class DatabaseHelper {
           'peso_kg REAL NOT NULL, '
           'data TEXT NOT NULL)',
         );
+        // Esercizi a tempo: colonna aggiunta senza toccare i dati esistenti.
+        final colonne = await db.rawQuery('PRAGMA table_info(esercizi)');
+        final haATempo = colonne.any((c) => c['name'] == 'a_tempo');
+        if (!haATempo) {
+          await db.execute('ALTER TABLE esercizi ADD COLUMN a_tempo INTEGER NOT NULL DEFAULT 0');
+        }
       },
       onCreate: _onCreate,
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -257,6 +263,7 @@ class DatabaseHelper {
       SELECT esercizi.nome AS nome, esercizi.categoria AS categoria,
              COUNT(*) AS serie, MAX(storico.carico) AS carico_max,
              SUM(storico.carico * storico.rep) AS volume,
+             MAX(esercizi.a_tempo) AS a_tempo, SUM(storico.rep) AS rep_tot,
              (SELECT MAX(s2.carico) FROM storico s2
                 JOIN esercizi e2 ON e2.id = s2.esercizio_id
                WHERE e2.nome = esercizi.nome AND s2.data < ?) AS record_prima
@@ -278,7 +285,8 @@ class DatabaseHelper {
     return await db.rawQuery(
       '''
       SELECT esercizi.nome AS nome, esercizi.categoria AS categoria,
-             COUNT(*) AS serie, MAX(storico.carico) AS carico_max
+             COUNT(*) AS serie, MAX(storico.carico) AS carico_max,
+             MAX(esercizi.a_tempo) AS a_tempo, SUM(storico.rep) AS rep_tot
       FROM storico
       JOIN esercizi ON esercizi.id = storico.esercizio_id
       WHERE storico.data >= ?
@@ -306,7 +314,7 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getStoricoConNome() async {
     final db = await database;
     return await db.rawQuery('''
-      SELECT storico.*, esercizi.nome as esercizio_nome, schede.nome as scheda_nome
+      SELECT storico.*, esercizi.nome as esercizio_nome, schede.nome as scheda_nome, esercizi.a_tempo as a_tempo
       FROM storico
       JOIN esercizi ON esercizi.id = storico.esercizio_id
       JOIN schede ON schede.id = esercizi.scheda_id
@@ -323,7 +331,7 @@ class DatabaseHelper {
     final inizioGiorno = DateTime(oggi.year, oggi.month, oggi.day).toIso8601String();
     return await db.rawQuery(
       '''
-      SELECT storico.*, esercizi.nome as esercizio_nome, schede.nome as scheda_nome
+      SELECT storico.*, esercizi.nome as esercizio_nome, schede.nome as scheda_nome, esercizi.a_tempo as a_tempo
       FROM storico
       JOIN esercizi ON esercizi.id = storico.esercizio_id
       JOIN schede ON schede.id = esercizi.scheda_id

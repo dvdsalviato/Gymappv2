@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/tempo.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
 import '../models/scheda.dart';
@@ -76,6 +77,8 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
             repTarget: e.repTarget,
             riposoSecondi: e.riposoSecondi,
             note: e.note,
+            categoria: e.categoria,
+            aTempo: e.aTempo,
           ),
         );
       }
@@ -158,7 +161,9 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
                                                 ),
                                                 const SizedBox(height: 2),
                                                 Text(
-                                                  '${e.serieTotali} serie x ${e.repTarget} rep · riposo ${e.riposoSecondi}s',
+                                                  e.aTempo
+                                                      ? '${e.serieTotali} serie x ${formattaDurata(e.repTarget)} · riposo ${e.riposoSecondi}s'
+                                                      : '${e.serieTotali} serie x ${e.repTarget} rep · riposo ${e.riposoSecondi}s',
                                                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                                                 ),
                                                 if (e.note != null && e.note!.isNotEmpty) ...[

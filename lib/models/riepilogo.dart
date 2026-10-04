@@ -7,8 +7,19 @@ class EsercizioRiepilogo {
   final double caricoMax;
   final double volume;
   final bool record;
+  final bool aTempo;
+  final int secondi; // tempo totale, per gli esercizi a tempo
 
-  const EsercizioRiepilogo(this.nome, this.categoria, this.serie, this.caricoMax, this.volume, this.record);
+  const EsercizioRiepilogo(
+    this.nome,
+    this.categoria,
+    this.serie,
+    this.caricoMax,
+    this.volume,
+    this.record, {
+    this.aTempo = false,
+    this.secondi = 0,
+  });
 }
 
 class RiepilogoSessione {
