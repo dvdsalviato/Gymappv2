@@ -6,6 +6,7 @@ import '../data/progressione.dart';
 import '../data/tempo.dart';
 import '../models/riepilogo.dart';
 import '../services/notifica_allenamento.dart';
+import '../services/orologio_sync.dart';
 import 'package:vibration/vibration.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
@@ -74,14 +75,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     super.initState();
     _riposoCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))
       ..addListener(_onTickRiposo);
-    NotificaAllenamento.onAzione = (azione) {
-      if (azione == NotificaAllenamento.azioneSaltaRiposo &&
-          mounted &&
-          _fase == FaseAllenamento.riposo &&
-          !_dialogPausa) {
-        _saltaRiposo();
-      }
-    };
+    NotificaAllenamento.onAzione = _gestisciAzione;
+    OrologioSync.onAzione = _gestisciAzione;
+    OrologioSync.avvia();
     if (widget.ripresaDa != null) {
       GestoreSessione.inizioAllenamento ??= DateTime.now();
       _coda = List.of(widget.ripresaDa!.coda);
@@ -111,6 +107,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   @override
   void dispose() {
     NotificaAllenamento.onAzione = null;
+    OrologioSync.onAzione = null;
+    OrologioSync.invia({'attivo': false});
     _fermaTimerRiposo(sincronizza: false);
     _riposoCtrl.dispose();
     NotificaAllenamento.chiudi();
@@ -328,7 +326,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     _completaSerieATempo(fatti < 1 ? 1 : fatti);
   }
 
-  /// Tiene allineata la notifica fissa con quello che stai facendo.
+  /// Comandi che arrivano dalla notifica o dall'orologio.
+  void _gestisciAzione(String azione) {
+    if (!mounted || _dialogPausa) return;
+    if (azione == NotificaAllenamento.azioneSaltaRiposo && _fase == FaseAllenamento.riposo) {
+      _saltaRiposo();
+    } else if (azione == 'vai' && _fase == FaseAllenamento.pronto) {
+      _premiVai();
+    }
+  }
+
+  /// Tiene allineata la notifica fissa (e l'orologio) con quello che stai facendo.
   void _sincronizzaNotifica() {
     if (!mounted) return;
     String titolo;
@@ -340,6 +348,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       if (_firmaNotifica != 'fine') {
         _firmaNotifica = 'fine';
         NotificaAllenamento.chiudi();
+        OrologioSync.invia({'attivo': false});
       }
       return;
     }
@@ -372,6 +381,32 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     if (firma == _firmaNotifica) return;
     _firmaNotifica = firma;
     NotificaAllenamento.aggiorna(titolo: titolo, testo: testo, finoA: finoA, saltabile: saltabile);
+
+    final String faseOrologio;
+    if (_dialogPausa) {
+      faseOrologio = 'pausa';
+    } else if (_fase == FaseAllenamento.riposo) {
+      faseOrologio = 'riposo';
+    } else if (_fase == FaseAllenamento.inCorso) {
+      faseOrologio = 'inCorso';
+    } else {
+      faseOrologio = 'pronto';
+    }
+    var restMs = 0;
+    if (finoA != null) {
+      restMs = finoA.difference(DateTime.now()).inMilliseconds;
+      if (restMs < 0) restMs = 0;
+    }
+    OrologioSync.invia({
+      'attivo': true,
+      'fase': faseOrologio,
+      'titolo': titolo,
+      'testo': testo,
+      'restMs': restMs,
+      'totaleMs': finoA == null ? 0 : _secondiTotali * 1000,
+      'saltabile': saltabile,
+      'vai': faseOrologio == 'pronto',
+    });
   }
 
   void _preparaProssima() {

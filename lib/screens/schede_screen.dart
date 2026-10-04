@@ -232,6 +232,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
           riposoSecondi: e.riposoSecondi,
           categoria: e.categoria,
           note: e.note,
+          aTempo: e.aTempo,
         ),
       );
     }

@@ -5,18 +5,17 @@ import 'package:http/http.dart' as http;
 /// Manda l'intera cronologia della chat a ogni richiesta perché l'API è
 /// stateless.
 ///
-/// Quando un modello è sovraccarico (errore 503) o ha finito la quota (429)
-/// riprova dopo una breve pausa e poi passa al modello successivo della
-/// lista. I modelli che non esistono (404) vengono saltati.
+/// Il modello principale è Gemini 3.8 Flash. Se è sovraccarico (503), insiste
+/// qualche volta con pause crescenti e poi passa ai modelli di riserva, tutti
+/// della famiglia 3.x. I modelli che non esistono (404) vengono saltati.
 class GeminiService {
   static const _modelli = [
     'gemini-3.8-flash',
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-    'gemini-2.0-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
   ];
-
-  static const _tentativiPerModello = 2;
 
   static Future<String> generaRisposta({
     required String apiKey,
@@ -40,7 +39,13 @@ class GeminiService {
         ],
       };
     }
-    final corpoJson = jsonEncode(corpo);
+    // Pensiero "low": risposte più veloci e meno soggette a sovraccarico.
+    final corpoConPensiero = <String, dynamic>{
+      ...corpo,
+      'generationConfig': {
+        'thinkingConfig': {'thinkingLevel': 'low'},
+      },
+    };
 
     String ultimoErrore = 'nessun modello disponibile';
 
@@ -48,8 +53,10 @@ class GeminiService {
       final uri = Uri.parse(
         'https://generativelanguage.googleapis.com/v1beta/models/$modello:generateContent',
       );
+      final tentativi = modello == _modelli.first ? 3 : 2;
+      var conPensiero = true;
 
-      for (var tentativo = 1; tentativo <= _tentativiPerModello; tentativo++) {
+      for (var tentativo = 1; tentativo <= tentativi; tentativo++) {
         http.Response risposta;
         try {
           risposta = await http
@@ -59,9 +66,9 @@ class GeminiService {
                   'Content-Type': 'application/json',
                   'x-goog-api-key': apiKey,
                 },
-                body: corpoJson,
+                body: jsonEncode(conPensiero ? corpoConPensiero : corpo),
               )
-              .timeout(const Duration(seconds: 40));
+              .timeout(const Duration(seconds: 45));
         } catch (e) {
           throw Exception('Connessione fallita: controlla la connessione internet del telefono. ($e)');
         }
@@ -73,17 +80,21 @@ class GeminiService {
         final dettaglio = _dettaglioErrore(risposta.body);
         ultimoErrore = 'Errore Gemini ${risposta.statusCode} ($modello): $dettaglio';
 
+        // Il modello non accetta l'impostazione del pensiero: riprova senza.
+        if (risposta.statusCode == 400 && conPensiero) {
+          conPensiero = false;
+          tentativo--;
+          continue;
+        }
         // Chiave sbagliata o richiesta non valida: inutile riprovare.
         if (risposta.statusCode == 400 || risposta.statusCode == 401 || risposta.statusCode == 403) {
           throw Exception(ultimoErrore);
         }
-        // Modello inesistente: passa subito al successivo.
-        if (risposta.statusCode == 404) break;
-        // Quota finita su questo modello: prova un altro.
-        if (risposta.statusCode == 429) break;
-        // 500/503 e simili: breve pausa e secondo tentativo.
-        if (tentativo < _tentativiPerModello) {
-          await Future.delayed(const Duration(seconds: 2));
+        // Modello inesistente o quota finita su questo modello: passa al successivo.
+        if (risposta.statusCode == 404 || risposta.statusCode == 429) break;
+        // 500/503 e simili: pausa crescente e nuovo tentativo.
+        if (tentativo < tentativi) {
+          await Future.delayed(Duration(seconds: 2 * tentativo));
         }
       }
     }
@@ -110,6 +121,13 @@ class GeminiService {
     if (parti == null || parti.isEmpty) {
       throw Exception('Risposta vuota dal modello');
     }
-    return (parti.first as Map<String, dynamic>)['text'] as String? ?? 'Nessuna risposta ricevuta.';
+    // Con il pensiero attivo possono esserci più parti: prendi quelle di testo.
+    final testi = <String>[];
+    for (final p in parti) {
+      if (p is Map<String, dynamic> && p['thought'] != true && p['text'] is String) {
+        testi.add(p['text'] as String);
+      }
+    }
+    return testi.isEmpty ? 'Nessuna risposta ricevuta.' : testi.join();
   }
 }

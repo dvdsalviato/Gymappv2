@@ -79,3 +79,56 @@ workflows:
         script: flutter build apk --release
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
+
+  wear-workflow:
+    name: Wear OS Build
+    max_build_duration: 30
+    environment:
+      android_signing:
+        - gymappv2_keystore
+      flutter: stable
+    scripts:
+      - name: Genera i file Android
+        script: flutter create --platforms=android .
+      - name: Rinomina app in Gymapp
+        script: perl -pi -e 's/android:label="[^"]*"/android:label="Gymapp Orologio"/' android/app/src/main/AndroidManifest.xml
+      - name: Manifest per Wear OS
+        script: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          grep -q 'hardware.type.watch' "$MANIFEST" || \
+          perl -pi -e 's{(<application)}{<uses-feature android:name="android.hardware.type.watch"/>\n    $1}' "$MANIFEST"
+          grep -q 'wearable.standalone' "$MANIFEST" || \
+          perl -0777 -pi -e 's{(<application[^>]*>)}{$1\n        <uses-library android:name="com.google.android.wearable" android:required="false"/>\n        <meta-data android:name="com.google.android.wearable.standalone" android:value="false"/>}' "$MANIFEST"
+          grep -n "watch\|wearable" "$MANIFEST"
+      - name: Firma fissa
+        script: |
+          if [ -f android/app/build.gradle.kts ]; then
+            FILE=android/app/build.gradle.kts
+            perl -0777 -pi -e 's/android \{/android {\n    signingConfigs {\n        create("release") {\n            storeFile = file(System.getenv("CM_KEYSTORE_PATH"))\n            storePassword = System.getenv("CM_KEYSTORE_PASSWORD")\n            keyAlias = System.getenv("CM_KEY_ALIAS")\n            keyPassword = System.getenv("CM_KEY_PASSWORD")\n        }\n    }\n/' "$FILE"
+            perl -pi -e 's/signingConfigs\.getByName\("debug"\)/signingConfigs.getByName("release")/' "$FILE"
+          else
+            FILE=android/app/build.gradle
+            perl -0777 -pi -e 's/(android \{)/$1\n    signingConfigs {\n        release {\n            storeFile file(System.getenv()["CM_KEYSTORE_PATH"])\n            storePassword System.getenv()["CM_KEYSTORE_PASSWORD"]\n            keyAlias System.getenv()["CM_KEY_ALIAS"]\n            keyPassword System.getenv()["CM_KEY_PASSWORD"]\n        }\n    }\n/' "$FILE"
+            perl -pi -e 's/signingConfig\s*=?\s*signingConfigs\.debug/signingConfig signingConfigs.release/' "$FILE"
+          fi
+      - name: Abilita desugaring e Java 17
+        script: |
+          if [ -f android/app/build.gradle.kts ]; then
+            FILE=android/app/build.gradle.kts
+            perl -0777 -pi -e 's/compileOptions \{/compileOptions {\n        isCoreLibraryDesugaringEnabled = true/' "$FILE"
+            printf '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n' >> "$FILE"
+          else
+            FILE=android/app/build.gradle
+            perl -0777 -pi -e 's/compileOptions \{/compileOptions {\n        coreLibraryDesugaringEnabled true/' "$FILE"
+            printf '\ndependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"\n}\n' >> "$FILE"
+          fi
+          perl -pi -e 's/VERSION_1_8/VERSION_17/g; s/VERSION_11/VERSION_17/g; s/(jvmTarget\s*=\s*)["\x27][0-9.]+["\x27]/$1"17"/' "$FILE"
+          grep -n "esugar\|VERSION_17\|jvmTarget" "$FILE"
+      - name: Dipendenze
+        script: flutter pub get
+      - name: Icona app
+        script: dart run flutter_launcher_icons
+      - name: Build APK orologio
+        script: flutter build apk --release --target lib/main_wear.dart
+    artifacts:
+      - build/app/outputs/flutter-apk/*.apk
