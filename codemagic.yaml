@@ -30,6 +30,47 @@ workflows:
             perl -0777 -pi -e 's/(android \{)/$1\n    signingConfigs {\n        release {\n            storeFile file(System.getenv()["CM_KEYSTORE_PATH"])\n            storePassword System.getenv()["CM_KEYSTORE_PASSWORD"]\n            keyAlias System.getenv()["CM_KEY_ALIAS"]\n            keyPassword System.getenv()["CM_KEY_PASSWORD"]\n        }\n    }\n/' "$FILE"
             perl -pi -e 's/signingConfig\s*=?\s*signingConfigs\.debug/signingConfig signingConfigs.release/' "$FILE"
           fi
+      - name: Notifiche in primo piano (permessi e servizio)
+        script: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          grep -q 'FOREGROUND_SERVICE_SPECIAL_USE' "$MANIFEST" || \
+          perl -pi -e 's{(<application)}{<uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>\n    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>\n    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>\n    $1}' "$MANIFEST"
+          grep -q 'flutterlocalnotifications.ForegroundService' "$MANIFEST" || \
+          perl -0777 -pi -e 's{</application>}{    <service android:name="com.dexterous.flutterlocalnotifications.ForegroundService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Cronometro di allenamento"/>\n        </service>\n        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />\n    </application>}' "$MANIFEST"
+          grep -n "ForegroundService\|FOREGROUND_SERVICE\|ActionBroadcastReceiver" "$MANIFEST"
+      - name: Icona e risorse della notifica
+        script: |
+          RES=android/app/src/main/res
+          mkdir -p "$RES/drawable" "$RES/raw"
+          cat > "$RES/drawable/ic_stat_gym.xml" <<'XML'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="24dp"
+              android:height="24dp"
+              android:viewportWidth="24"
+              android:viewportHeight="24">
+              <path
+                  android:fillColor="#FFFFFFFF"
+                  android:pathData="M20.57,14.86L22,13.43L20.57,12L17,15.57L8.43,7L12,3.43L10.57,2L9.14,3.43L7.71,2L5.57,4.14L4.14,2.71L2.71,4.14l1.43,1.43L2,7.71l1.43,1.43L2,10.57L3.43,12L7,8.43L15.57,17L12,20.57L13.43,22l1.43,-1.43L16.29,22l2.14,-2.14l1.43,1.43l1.43,-1.43l-1.43,-1.43L22,16.29z"/>
+          </vector>
+          XML
+          cat > "$RES/raw/keep.xml" <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@drawable/ic_stat_gym,@mipmap/ic_launcher" />
+          XML
+          ls "$RES/drawable" "$RES/raw"
+      - name: Abilita desugaring e Java 17
+        script: |
+          if [ -f android/app/build.gradle.kts ]; then
+            FILE=android/app/build.gradle.kts
+            perl -0777 -pi -e 's/compileOptions \{/compileOptions {\n        isCoreLibraryDesugaringEnabled = true/' "$FILE"
+            printf '\ndependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")\n}\n' >> "$FILE"
+          else
+            FILE=android/app/build.gradle
+            perl -0777 -pi -e 's/compileOptions \{/compileOptions {\n        coreLibraryDesugaringEnabled true/' "$FILE"
+            printf '\ndependencies {\n    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.1.4"\n}\n' >> "$FILE"
+          fi
+          perl -pi -e 's/VERSION_1_8/VERSION_17/g; s/VERSION_11/VERSION_17/g; s/(jvmTarget\s*=\s*)["\x27][0-9.]+["\x27]/$1"17"/' "$FILE"
+          grep -n "esugar\|VERSION_17\|jvmTarget" "$FILE"
       - name: Dipendenze
         script: flutter pub get
       - name: Icona app

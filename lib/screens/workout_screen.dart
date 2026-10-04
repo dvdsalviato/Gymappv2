@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/progressione.dart';
 import '../models/riepilogo.dart';
+import '../services/notifica_allenamento.dart';
 import 'package:vibration/vibration.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
@@ -28,7 +29,7 @@ class WorkoutScreen extends StatefulWidget {
   State<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
-class _WorkoutScreenState extends State<WorkoutScreen> {
+class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProviderStateMixin {
   late List<VoceCoda> _coda;
   FaseAllenamento _fase = FaseAllenamento.pronto;
   bool _sessioneRegistrata = false;
@@ -44,7 +45,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   bool _caricamentoUltimo = true;
   RiepilogoSessione? _riepilogo;
 
-  Timer? _timer;
+  // Countdown del riposo: l'anello è guidato da un AnimationController (si
+  // muove a ogni fotogramma, quindi è fluido); la fine è decisa da un timer
+  // sull'ora esatta di scadenza, che funziona anche a schermo spento.
+  late final AnimationController _riposoCtrl;
+  Timer? _timerFine;
+  DateTime? _fineRiposo;
+  int _ultimoSecondoMostrato = -1;
+  bool _dialogPausa = false;
+  String _firmaNotifica = '';
   int _secondiRimanenti = 0;
   int _secondiTotali = 0;
 
@@ -62,6 +71,16 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   @override
   void initState() {
     super.initState();
+    _riposoCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))
+      ..addListener(_onTickRiposo);
+    NotificaAllenamento.onAzione = (azione) {
+      if (azione == NotificaAllenamento.azioneSaltaRiposo &&
+          mounted &&
+          _fase == FaseAllenamento.riposo &&
+          !_dialogPausa) {
+        _saltaRiposo();
+      }
+    };
     if (widget.ripresaDa != null) {
       GestoreSessione.inizioAllenamento ??= DateTime.now();
       _coda = List.of(widget.ripresaDa!.coda);
@@ -79,11 +98,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       _preparaProssima();
       _avviaTimerRiposo();
     }
+    _sincronizzaNotifica();
+  }
+
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    _sincronizzaNotifica();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    NotificaAllenamento.onAzione = null;
+    _fermaTimerRiposo(sincronizza: false);
+    _riposoCtrl.dispose();
+    NotificaAllenamento.chiudi();
     // Se non è stato messo in pausa, l'allenamento è finito (o abbandonato).
     if (GestoreSessione.inPausa == null) GestoreSessione.inizioAllenamento = null;
     super.dispose();
@@ -189,23 +218,97 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
     _avviaTimerRiposo();
   }
 
-  void _avviaTimerRiposo() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      setState(() => _secondiRimanenti--);
-      if (_secondiRimanenti > 0 && _secondiRimanenti <= 3) {
+  double _secondiResiduiPrecisi() {
+    final fine = _fineRiposo;
+    if (fine == null) return _secondiRimanenti.toDouble();
+    final ms = fine.difference(DateTime.now()).inMilliseconds;
+    return ms <= 0 ? 0.0 : ms / 1000.0;
+  }
+
+  void _onTickRiposo() {
+    final s = _secondiResiduiPrecisi().ceil();
+    if (s != _ultimoSecondoMostrato) {
+      _ultimoSecondoMostrato = s;
+      if (s > 0 && s <= 3 && _fase == FaseAllenamento.riposo) {
         HapticFeedback.lightImpact();
       }
-      if (_secondiRimanenti <= 0) {
-        t.cancel();
-        Vibration.hasVibrator().then((haVibrazione) {
-          if (haVibrazione == true) {
-            Vibration.vibrate(duration: 1000);
-          }
-        });
-        _avanza();
+    }
+  }
+
+  void _avviaTimerRiposo() {
+    _fermaTimerRiposo(sincronizza: false);
+    final totaleMs = _secondiTotali * 1000;
+    var rimanentiMs = _secondiRimanenti * 1000;
+    if (rimanentiMs > totaleMs) rimanentiMs = totaleMs;
+    if (rimanentiMs < 0) rimanentiMs = 0;
+    _fineRiposo = DateTime.now().add(Duration(milliseconds: rimanentiMs));
+    _ultimoSecondoMostrato = -1;
+    if (totaleMs > 0) {
+      _riposoCtrl.duration = Duration(milliseconds: totaleMs);
+      _riposoCtrl.forward(from: 1 - rimanentiMs / totaleMs);
+    }
+    _timerFine = Timer(Duration(milliseconds: rimanentiMs), _fineRiposoTerminato);
+    _sincronizzaNotifica();
+  }
+
+  void _fermaTimerRiposo({bool sincronizza = true}) {
+    _timerFine?.cancel();
+    _timerFine = null;
+    _riposoCtrl.stop();
+    _fineRiposo = null;
+    if (sincronizza) _sincronizzaNotifica();
+  }
+
+  void _fineRiposoTerminato() {
+    _fermaTimerRiposo(sincronizza: false);
+    if (!mounted || _fase != FaseAllenamento.riposo) return;
+    Vibration.hasVibrator().then((haVibrazione) {
+      if (haVibrazione == true) {
+        Vibration.vibrate(duration: 1000);
       }
     });
+    _avanza();
+  }
+
+  /// Tiene allineata la notifica fissa con quello che stai facendo.
+  void _sincronizzaNotifica() {
+    if (!mounted) return;
+    String titolo;
+    String testo;
+    DateTime? finoA;
+    var saltabile = false;
+
+    if (_fase == FaseAllenamento.completato || _coda.isEmpty) {
+      if (_firmaNotifica != 'fine') {
+        _firmaNotifica = 'fine';
+        NotificaAllenamento.chiudi();
+      }
+      return;
+    }
+    if (_dialogPausa) {
+      titolo = 'Allenamento in pausa';
+      testo = widget.nomeScheda;
+    } else if (_fase == FaseAllenamento.riposo) {
+      final p = _prossimoEsercizio;
+      titolo = 'Riposo';
+      testo = p == null
+          ? 'Ultimo recupero, poi hai finito!'
+          : 'Poi: ${p.nome} · serie $_prossimaSerieNumero di ${p.serieTotali}';
+      finoA = _fineRiposo;
+      saltabile = true;
+    } else if (_fase == FaseAllenamento.inCorso) {
+      final e = _esercizioCorrente;
+      titolo = e.nome;
+      testo = 'Serie $_numeroSerie di ${e.serieTotali} · obiettivo ${e.repTarget} reps';
+    } else {
+      final v = _coda[_cursore < _coda.length ? _cursore : 0];
+      titolo = widget.nomeScheda;
+      testo = 'Prossimo: ${v.esercizio.nome} · serie ${v.numeroSerie} di ${v.esercizio.serieTotali}';
+    }
+    final firma = '$_fase|$titolo|$testo|${finoA?.millisecondsSinceEpoch}|$saltabile';
+    if (firma == _firmaNotifica) return;
+    _firmaNotifica = firma;
+    NotificaAllenamento.aggiorna(titolo: titolo, testo: testo, finoA: finoA, saltabile: saltabile);
   }
 
   void _preparaProssima() {
@@ -245,7 +348,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   void _saltaRiposo() {
-    _timer?.cancel();
+    _fermaTimerRiposo(sincronizza: false);
     _avanza();
   }
 
@@ -284,7 +387,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   }
 
   Future<void> _mettiInPausa() async {
-    _timer?.cancel();
+    if (_fase == FaseAllenamento.riposo) {
+      _secondiRimanenti = _secondiResiduiPrecisi().ceil();
+    }
+    _dialogPausa = true;
+    _fermaTimerRiposo();
     final scelta = await showDialog<String>(
       context: context,
       barrierDismissible: false,
@@ -306,6 +413,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       ),
     );
 
+    _dialogPausa = false;
     if (scelta == 'home') {
       final fasePausata = _fase == FaseAllenamento.riposo ? FaseAllenamento.riposo : FaseAllenamento.pronto;
       GestoreSessione.inPausa = SessioneAllenamentoInPausa(
@@ -320,6 +428,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       // Il countdown era stato fermato per mostrare il dialogo: lo
       // rimettiamo in moto da dove si trovava.
       _avviaTimerRiposo();
+    } else {
+      _sincronizzaNotifica();
     }
   }
 
@@ -516,30 +626,43 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
           SizedBox(
             width: 200,
             height: 200,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  width: 200,
-                  height: 200,
-                  child: CircularProgressIndicator(
-                    value: _secondiTotali == 0 ? 0 : _secondiRimanenti / _secondiTotali,
-                    strokeWidth: 10,
-                    backgroundColor: coloreChip(context),
-                    valueColor: const AlwaysStoppedAnimation(AppColors.accento),
-                  ),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
+            child: AnimatedBuilder(
+              animation: _riposoCtrl,
+              builder: (context, _) {
+                final residuo = _secondiResiduiPrecisi();
+                final progresso = _secondiTotali == 0 ? 0.0 : (residuo / _secondiTotali).clamp(0.0, 1.0);
+                final secondi = residuo.ceil();
+                return Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Text(
-                      '$_secondiRimanenti',
-                      style: const TextStyle(fontSize: 52, fontWeight: FontWeight.bold),
+                    SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: CircularProgressIndicator(
+                        value: progresso.toDouble(),
+                        strokeWidth: 10,
+                        strokeCap: StrokeCap.round,
+                        backgroundColor: coloreChip(context),
+                        valueColor: const AlwaysStoppedAnimation(AppColors.accento),
+                      ),
                     ),
-                    Text('secondi', style: TextStyle(color: Colors.grey.shade600)),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          child: Text(
+                            '$secondi',
+                            key: ValueKey<int>(secondi),
+                            style: GoogleFonts.oswald(fontSize: 60, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Text('secondi', style: TextStyle(color: Colors.grey.shade600)),
+                      ],
+                    ),
                   ],
-                ),
-              ],
+                );
+              },
             ),
           ),
           const SizedBox(height: 24),
@@ -895,7 +1018,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
   Widget _ultimaVoltaCard(List<StoricoEntry> serie, int serieCorrente, {bool compatta = false}) {
     if (_caricamentoUltimo && !compatta) return const SizedBox.shrink();
 
-    final sfondo = compatta ? coloreChip(context) : coloreCard(context);
+    final sfondo = compatta ? coloreChip(context) : coloreSuperficie(context);
 
     if (serie.isEmpty) {
       return Container(
@@ -916,41 +1039,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
       );
     }
 
-    final righe = <Widget>[];
+    StoricoEntry? questa;
     for (final s in serie) {
-      final attuale = s.serieNumero == serieCorrente;
-      righe.add(
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 3),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 72,
-                child: Text(
-                  'Serie ${s.serieNumero}',
-                  style: TextStyle(
-                    color: attuale ? AppColors.accento : Colors.grey.shade500,
-                    fontWeight: attuale ? FontWeight.bold : FontWeight.w500,
-                  ),
-                ),
-              ),
-              Text(
-                '${_numeroBreve(s.carico)} kg × ${s.rep}',
-                style: TextStyle(
-                  color: attuale ? AppColors.accento : null,
-                  fontWeight: attuale ? FontWeight.bold : FontWeight.w500,
-                  fontSize: attuale ? 18 : 15,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
+      if (s.serieNumero == serieCorrente) questa = s;
     }
+    final altre = serie.where((s) => s.serieNumero != serieCorrente).toList();
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(color: sfondo, borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -965,7 +1062,40 @@ class _WorkoutScreenState extends State<WorkoutScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          ...righe,
+          if (questa != null)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Text(
+                  'Serie ${questa.serieNumero}',
+                  style: const TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  '${_numeroBreve(questa.carico)} kg × ${questa.rep}',
+                  style: GoogleFonts.oswald(fontSize: 28, fontWeight: FontWeight.w700),
+                ),
+              ],
+            )
+          else
+            Text(
+              'Serie $serieCorrente: non l\'hai fatta l\'ultima volta',
+              style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+            ),
+          if (altre.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 16,
+              runSpacing: 4,
+              children: [
+                for (final s in altre)
+                  Text(
+                    'Serie ${s.serieNumero}: ${_numeroBreve(s.carico)} kg × ${s.rep}',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                  ),
+              ],
+            ),
+          ],
         ],
       ),
     );

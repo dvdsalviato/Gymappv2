@@ -18,6 +18,7 @@ dependencies:
   http: ^1.2.0
   url_launcher: ^6.2.0
   google_fonts: ^6.2.1
+  flutter_local_notifications: ^22.3.1
   qr_flutter: ^4.1.0
   mobile_scanner: ^5.2.3
 
