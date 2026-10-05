@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:vibration/vibration.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:watch_connectivity/watch_connectivity.dart';
 
 /// App per smartwatch Wear OS: mostra l'allenamento che sta andando sul
-/// telefono (esercizio, serie, countdown) e permette "Vai" e "Salta riposo".
+/// telefono (esercizio, serie, countdown) e permette "Vai", "Salta riposo" e
+/// di registrare la serie con carico e ripetizioni.
 /// Si compila con: flutter build apk --release --target lib/main_wear.dart
 const Color _lime = Color(0xFF39FF14);
 
@@ -49,6 +51,10 @@ class _Stato {
   final int totaleMs;
   final bool saltabile;
   final bool vai;
+  final bool registra;
+  final double carico;
+  final int rep;
+  final double consiglio;
   final int ts;
 
   const _Stato({
@@ -60,6 +66,10 @@ class _Stato {
     required this.totaleMs,
     required this.saltabile,
     required this.vai,
+    required this.registra,
+    required this.carico,
+    required this.rep,
+    required this.consiglio,
     required this.ts,
   });
 
@@ -72,11 +82,16 @@ class _Stato {
     totaleMs: 0,
     saltabile: false,
     vai: false,
+    registra: false,
+    carico: 0,
+    rep: 0,
+    consiglio: 0,
     ts: 0,
   );
 
   factory _Stato.da(Map<String, dynamic> m) {
     int intero(dynamic v) => v is num ? v.toInt() : 0;
+    double decimale(dynamic v) => v is num ? v.toDouble() : 0.0;
     String testo(dynamic v) => v is String ? v : '';
     return _Stato(
       attivo: m['attivo'] == true,
@@ -87,6 +102,10 @@ class _Stato {
       totaleMs: intero(m['totaleMs']),
       saltabile: m['saltabile'] == true,
       vai: m['vai'] == true,
+      registra: m['registra'] == true,
+      carico: decimale(m['carico']),
+      rep: intero(m['rep']),
+      consiglio: decimale(m['consiglio']),
       ts: intero(m['ts']),
     );
   }
@@ -110,6 +129,14 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
   int _totaleMs = 0;
   bool _fineSegnalata = false;
   int _tsApplicato = 0;
+  bool _schermoAcceso = false;
+
+  // Editor di carico e ripetizioni
+  bool _modificando = false;
+  double _carico = 0;
+  int _rep = 10;
+  int _iPasso = 0;
+  static const List<double> _passi = [2.5, 1.0, 0.5, 5.0];
 
   @override
   void initState() {
@@ -125,6 +152,7 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
     _subMessaggi?.cancel();
     _subContesto?.cancel();
     _ticker.dispose();
+    if (_schermoAcceso) WakelockPlus.disable();
     super.dispose();
   }
 
@@ -167,12 +195,28 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
       _fine = (nuovo.attivo && nuovo.totaleMs > 0 && rest > 0)
           ? DateTime.now().add(Duration(milliseconds: rest))
           : null;
+      if (!nuovo.attivo || nuovo.fase != 'inCorso') _modificando = false;
     });
     if (_fine != null && !_ticker.isActive) {
       _ticker.start();
     } else if (_fine == null && _ticker.isActive) {
       _ticker.stop();
     }
+    _aggiornaSchermo(nuovo.attivo);
+  }
+
+  /// Durante l'allenamento lo schermo resta acceso, così l'app non si chiude
+  /// quando l'orologio andrebbe in standby.
+  void _aggiornaSchermo(bool attivo) {
+    if (attivo == _schermoAcceso) return;
+    _schermoAcceso = attivo;
+    try {
+      if (attivo) {
+        WakelockPlus.enable();
+      } else {
+        WakelockPlus.disable();
+      }
+    } catch (_) {}
   }
 
   int get _restanteMs {
@@ -195,17 +239,35 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
     if (mounted) setState(() {});
   }
 
-  Future<void> _invia(String azione) async {
+  Future<void> _invia(Map<String, dynamic> messaggio) async {
     HapticFeedback.mediumImpact();
     try {
-      await _watch.sendMessage({'azione': azione});
+      await _watch.sendMessage(messaggio);
     } catch (_) {}
+  }
+
+  void _apriEditor() {
+    setState(() {
+      _carico = _stato.carico;
+      _rep = _stato.rep > 0 ? _stato.rep : 10;
+      _modificando = true;
+    });
+  }
+
+  void _confermaSerie() {
+    _invia({'azione': 'registra', 'carico': _carico, 'rep': _rep});
+    setState(() => _modificando = false);
   }
 
   String _orologio(int secondi) {
     final m = secondi ~/ 60;
     final s = (secondi % 60).toString().padLeft(2, '0');
     return '$m:$s';
+  }
+
+  String _kg(double v) {
+    final t = v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
+    return t.replaceAll('.', ',');
   }
 
   Widget _pulsante(String testo, IconData icona, VoidCallback onTap) {
@@ -263,9 +325,95 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
     );
   }
 
+  Widget _tondo(IconData icona, VoidCallback onTap) {
+    return SizedBox(
+      width: 34,
+      height: 34,
+      child: IconButton.filledTonal(
+        padding: EdgeInsets.zero,
+        iconSize: 18,
+        onPressed: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        icon: Icon(icona),
+      ),
+    );
+  }
+
+  Widget _rigaStepper({
+    required String etichetta,
+    required String valore,
+    required VoidCallback meno,
+    required VoidCallback piu,
+    VoidCallback? sulValore,
+  }) {
+    return SizedBox(
+      height: 42,
+      child: Row(
+        children: [
+          _tondo(Icons.remove, meno),
+          Expanded(
+            child: GestureDetector(
+              onTap: sulValore,
+              behavior: HitTestBehavior.opaque,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(valore, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, height: 1.0)),
+                  Text(etichetta, style: const TextStyle(fontSize: 9, color: Colors.grey, height: 1.2)),
+                ],
+              ),
+            ),
+          ),
+          _tondo(Icons.add, piu),
+        ],
+      ),
+    );
+  }
+
+  Widget _editor() {
+    final passo = _passi[_iPasso];
+    final consiglio = _stato.consiglio;
+    return Column(
+      children: [
+        _rigaStepper(
+          etichetta: 'KG  ±${_kg(passo)}',
+          valore: _kg(_carico),
+          meno: () => setState(() => _carico = math.max(0, _carico - passo)),
+          piu: () => setState(() => _carico = _carico + passo),
+          sulValore: () => setState(() => _iPasso = (_iPasso + 1) % _passi.length),
+        ),
+        if (consiglio > 0 && consiglio != _carico)
+          GestureDetector(
+            onTap: () => setState(() => _carico = consiglio),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                'Consigliato ${_kg(consiglio)}  ›',
+                style: const TextStyle(color: _lime, fontSize: 10, fontWeight: FontWeight.w700),
+              ),
+            ),
+          )
+        else
+          const SizedBox(height: 6),
+        _rigaStepper(
+          etichetta: 'REPS',
+          valore: '$_rep',
+          meno: () => setState(() => _rep = math.max(0, _rep - 1)),
+          piu: () => setState(() => _rep = _rep + 1),
+        ),
+        const Spacer(),
+        _pulsante('FATTO', Icons.check, _confermaSerie),
+      ],
+    );
+  }
+
   Widget _schermataVuota(double lato) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(14),
@@ -274,6 +422,7 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
         const SizedBox(height: 8),
         const Text(
           'GYMAPP',
+          textAlign: TextAlign.center,
           style: TextStyle(color: _lime, fontWeight: FontWeight.w800, letterSpacing: 2, fontSize: 15),
         ),
         const SizedBox(height: 4),
@@ -289,6 +438,7 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
   Widget _contenuto(double lato) {
     final s = _stato;
     if (!s.attivo) return _schermataVuota(lato);
+    if (_modificando) return _editor();
 
     switch (s.fase) {
       case 'pausa':
@@ -314,7 +464,7 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
                 style: const TextStyle(color: Colors.grey, fontSize: 10)),
             if (s.saltabile) ...[
               const SizedBox(height: 6),
-              _pulsante('SALTA', Icons.skip_next, () => _invia('salta_riposo')),
+              _pulsante('SALTA', Icons.skip_next, () => _invia({'azione': 'salta_riposo'})),
             ],
           ],
         );
@@ -333,16 +483,27 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
           );
         }
         return Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(s.titolo, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 17, height: 1.15)),
-            const SizedBox(height: 6),
-            Text(s.testo, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _lime, fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 8),
-            const Text('Finisci la serie\nsul telefono', textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 10)),
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(s.titolo, textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, height: 1.15)),
+                    const SizedBox(height: 6),
+                    Text(s.testo, textAlign: TextAlign.center, maxLines: 2, overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _lime, fontSize: 11, fontWeight: FontWeight.w600)),
+                    if (s.consiglio > 0) ...[
+                      const SizedBox(height: 4),
+                      Text('Consigliato ${_kg(s.consiglio)} kg',
+                          style: const TextStyle(color: Colors.grey, fontSize: 10)),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (s.registra) _pulsante('FINE SERIE', Icons.check, _apriEditor),
           ],
         );
       default: // pronto
@@ -356,7 +517,7 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, height: 1.2)),
               ),
             ),
-            if (s.vai) _pulsante('VAI', Icons.play_arrow, () => _invia('vai')),
+            if (s.vai) _pulsante('VAI', Icons.play_arrow, () => _invia({'azione': 'vai'})),
           ],
         );
     }
@@ -371,7 +532,8 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
           final margine = lato * 0.13;
           return Padding(
             padding: EdgeInsets.all(margine),
-            child: _contenuto(lato - margine * 2),
+            // SizedBox.expand: il contenuto occupa tutto lo spazio e resta centrato.
+            child: SizedBox.expand(child: _contenuto(lato - margine * 2)),
           );
         },
       ),

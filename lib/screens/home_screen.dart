@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import '../data/contenuti.dart';
 import '../data/medaglie.dart';
 import '../data/statistiche.dart';
 import '../db/database_helper.dart';
@@ -37,8 +38,21 @@ const _appEsterne = [
   _AppEsterna('MyFitnessPal', Icons.restaurant_menu, 'https://www.myfitnesspal.com'),
 ];
 
-const _urlNotizie =
-    'https://news.google.com/rss/search?q=fitness+allenamento+palestra&hl=it&gl=IT&ceid=IT:it';
+class _Categoria {
+  final String nome;
+  final String ricerca;
+  const _Categoria(this.nome, this.ricerca);
+}
+
+const _categorie = [
+  _Categoria('Ricette fit', 'ricette fit proteiche'),
+  _Categoria('Consigli', 'consigli allenamento palestra'),
+  _Categoria('Esercizi', 'esercizi allenamento tecnica'),
+  _Categoria('Notizie', 'fitness allenamento palestra'),
+];
+
+String _urlPer(String ricerca) =>
+    'https://news.google.com/rss/search?q=${Uri.encodeQueryComponent(ricerca)}&hl=it&gl=IT&ceid=IT:it';
 
 /// Home: panoramica della settimana, timer dell'allenamento, scorciatoie,
 /// notizie e collegamenti ad altre app.
@@ -61,6 +75,9 @@ class _HomeScreenState extends State<HomeScreen> {
   StatisticheUtente? _stat;
   int _medaglieSbloccate = 0;
   List<_Notizia> _notizie = [];
+  int _categoria = 0;
+  final Map<int, List<_Notizia>> _cache = {};
+  bool _ricettaAperta = false;
   bool _notizieCaricamento = true;
   bool _notizieErrore = false;
 
@@ -164,13 +181,25 @@ class _HomeScreenState extends State<HomeScreen> {
     return m == null ? '' : _decodifica(m.group(1) ?? '');
   }
 
-  Future<void> _caricaNotizie() async {
+  Future<void> _caricaNotizie({bool forza = false}) async {
+    final categoria = _categoria;
+    final inCache = _cache[categoria];
+    if (!forza && inCache != null) {
+      setState(() {
+        _notizie = inCache;
+        _notizieCaricamento = false;
+        _notizieErrore = false;
+      });
+      return;
+    }
     setState(() {
       _notizieCaricamento = true;
       _notizieErrore = false;
     });
     try {
-      final r = await http.get(Uri.parse(_urlNotizie)).timeout(const Duration(seconds: 10));
+      final r = await http
+          .get(Uri.parse(_urlPer(_categorie[categoria].ricerca)))
+          .timeout(const Duration(seconds: 10));
       if (r.statusCode != 200) throw Exception('errore ${r.statusCode}');
       final xml = utf8.decode(r.bodyBytes, allowMalformed: true);
       final lista = <_Notizia>[];
@@ -187,13 +216,15 @@ class _HomeScreenState extends State<HomeScreen> {
         if (lista.length >= 5) break;
       }
       if (!mounted) return;
+      if (lista.isNotEmpty) _cache[categoria] = lista;
+      if (categoria != _categoria) return; // nel frattempo hai cambiato scheda
       setState(() {
         _notizie = lista;
         _notizieCaricamento = false;
         _notizieErrore = lista.isEmpty;
       });
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || categoria != _categoria) return;
       setState(() {
         _notizieCaricamento = false;
         _notizieErrore = true;
@@ -600,6 +631,136 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  int get _giornoDellAnno {
+    final ora = DateTime.now();
+    return ora.difference(DateTime(ora.year, 1, 1)).inDays;
+  }
+
+  Widget _consiglioDelGiorno() {
+    final testo = consigliDelGiorno[_giornoDellAnno % consigliDelGiorno.length];
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: coloreSuperficie(context),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+            child: const Icon(Icons.lightbulb_outline, color: Colors.black, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'CONSIGLIO DEL GIORNO',
+                  style: TextStyle(color: AppColors.accento, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.3),
+                ),
+                const SizedBox(height: 4),
+                Text(testo, style: const TextStyle(height: 1.3)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _ricettaDelGiorno() {
+    final r = ricetteFit[(_giornoDellAnno + 3) % ricetteFit.length];
+    return GestureDetector(
+      onTap: () => setState(() => _ricettaAperta = !_ricettaAperta),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: coloreSuperficie(context),
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+                  child: const Icon(Icons.restaurant_menu, color: Colors.black, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'RICETTA FIT DEL GIORNO',
+                        style: TextStyle(color: AppColors.accento, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.3),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(r.titolo, style: GoogleFonts.oswald(fontSize: 19, fontWeight: FontWeight.w600)),
+                      Text(r.tipo, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                Icon(_ricettaAperta ? Icons.expand_less : Icons.expand_more, color: Colors.grey.shade500),
+              ],
+            ),
+            if (_ricettaAperta) ...[
+              const SizedBox(height: 14),
+              Text('INGREDIENTI', style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+              const SizedBox(height: 6),
+              for (final ing in r.ingredienti)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Text('•  $ing'),
+                ),
+              const SizedBox(height: 12),
+              Text('PREPARAZIONE', style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
+              const SizedBox(height: 6),
+              for (var i = 0; i < r.preparazione.length; i++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Text('${i + 1}.  ${r.preparazione[i]}', style: const TextStyle(height: 1.3)),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sceltaCategoria() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (var i = 0; i < _categorie.length; i++)
+          ChoiceChip(
+            label: Text(_categorie[i].nome),
+            selected: i == _categoria,
+            selectedColor: AppColors.accento,
+            labelStyle: TextStyle(
+              color: i == _categoria ? Colors.black : null,
+              fontWeight: FontWeight.w700,
+            ),
+            onSelected: (_) {
+              if (i == _categoria) return;
+              setState(() => _categoria = i);
+              _caricaNotizie();
+            },
+          ),
+      ],
+    );
+  }
+
   Widget _notizieCard() {
     Widget contenuto;
     if (_notizieCaricamento) {
@@ -618,7 +779,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: Colors.grey.shade500),
               ),
             ),
-            TextButton(onPressed: _caricaNotizie, child: const Text('Riprova')),
+            TextButton(onPressed: () => _caricaNotizie(forza: true), child: const Text('Riprova')),
           ],
         ),
       );
@@ -707,7 +868,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return RefreshIndicator(
       onRefresh: () async {
         await _carica();
-        await _caricaNotizie();
+        _cache.clear();
+        await _caricaNotizie(forza: true);
       },
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -728,7 +890,14 @@ class _HomeScreenState extends State<HomeScreen> {
           _etichetta('SCORCIATOIE'),
           _scorciatoie(),
           const SizedBox(height: 14),
-          _etichetta('NOTIZIE FITNESS'),
+          _etichetta('OGGI PER TE'),
+          _consiglioDelGiorno(),
+          const SizedBox(height: 10),
+          _ricettaDelGiorno(),
+          const SizedBox(height: 14),
+          _etichetta('SCOPRI'),
+          _sceltaCategoria(),
+          const SizedBox(height: 10),
           _notizieCard(),
           const SizedBox(height: 14),
           _etichetta('LE TUE APP'),

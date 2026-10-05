@@ -11,8 +11,9 @@ class OrologioSync {
   static final WatchConnectivity _watch = WatchConnectivity();
   static StreamSubscription<Map<String, dynamic>>? _sub;
 
-  /// Chiamata quando dall'orologio arriva un comando (es. "salta_riposo", "vai").
-  static void Function(String azione)? onAzione;
+  /// Chiamata quando dall'orologio arriva un comando: il messaggio contiene
+  /// "azione" (es. "salta_riposo", "vai", "registra") ed eventuali dati.
+  static void Function(Map<String, dynamic> messaggio)? onMessaggio;
 
   /// Comincia ad ascoltare i comandi dell'orologio.
   static void avvia() {
@@ -20,8 +21,7 @@ class OrologioSync {
     try {
       _sub = _watch.messageStream.listen(
         (messaggio) {
-          final azione = messaggio['azione'];
-          if (azione is String) onAzione?.call(azione);
+          if (messaggio['azione'] is String) onMessaggio?.call(messaggio);
         },
         onError: (Object e) => debugPrint('Orologio: $e'),
       );

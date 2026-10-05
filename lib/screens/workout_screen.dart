@@ -76,7 +76,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     _riposoCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 1))
       ..addListener(_onTickRiposo);
     NotificaAllenamento.onAzione = _gestisciAzione;
-    OrologioSync.onAzione = _gestisciAzione;
+    OrologioSync.onMessaggio = _gestisciMessaggioOrologio;
     OrologioSync.avvia();
     if (widget.ripresaDa != null) {
       GestoreSessione.inizioAllenamento ??= DateTime.now();
@@ -107,7 +107,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   @override
   void dispose() {
     NotificaAllenamento.onAzione = null;
-    OrologioSync.onAzione = null;
+    OrologioSync.onMessaggio = null;
     OrologioSync.invia({'attivo': false});
     _fermaTimerRiposo(sincronizza: false);
     _riposoCtrl.dispose();
@@ -182,9 +182,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       ),
     );
     if (risultato == null) return;
+    await _registraSerie((risultato['carico'] ?? 0).toDouble(), (risultato['rep'] ?? 0).toInt());
+  }
 
-    final carico = (risultato['carico'] ?? 0).toDouble();
-    final rep = (risultato['rep'] ?? 0).toInt();
+  bool _registrando = false;
+
+  /// Registra la serie (da pannello sul telefono o dall'orologio).
+  Future<void> _registraSerie(double carico, int rep) async {
+    if (_registrando || _fase != FaseAllenamento.inCorso) return;
+    _registrando = true;
+    try {
+      await _registraSerieInterna(carico, rep);
+    } finally {
+      _registrando = false;
+    }
+  }
+
+  Future<void> _registraSerieInterna(double carico, int rep) async {
     final recordPrecedente = _recordPersonale;
 
     final esercizioId = _esercizioCorrente.id;
@@ -326,6 +340,22 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     _completaSerieATempo(fatti < 1 ? 1 : fatti);
   }
 
+  /// Messaggi dall'orologio: comandi semplici o registrazione di una serie.
+  void _gestisciMessaggioOrologio(Map<String, dynamic> m) {
+    final azione = m['azione'];
+    if (azione is! String) return;
+    if (azione == 'registra') {
+      if (!mounted || _dialogPausa || _fase != FaseAllenamento.inCorso || _esercizioCorrente.aTempo) return;
+      final c = m['carico'];
+      final r = m['rep'];
+      if (c is num && r is num) {
+        _registraSerie(c.toDouble() < 0 ? 0 : c.toDouble(), r.toInt() < 0 ? 0 : r.toInt());
+      }
+      return;
+    }
+    _gestisciAzione(azione);
+  }
+
   /// Comandi che arrivano dalla notifica o dall'orologio.
   void _gestisciAzione(String azione) {
     if (!mounted || _dialogPausa) return;
@@ -397,9 +427,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       restMs = finoA.difference(DateTime.now()).inMilliseconds;
       if (restMs < 0) restMs = 0;
     }
+    var puoRegistrare = false;
+    var consiglioKg = 0.0;
+    if (faseOrologio == 'inCorso' && !_esercizioCorrente.aTempo) {
+      puoRegistrare = true;
+      consiglioKg = _calcolaConsiglio(_esercizioCorrente, _numeroSerie)?.carico ?? 0.0;
+    }
     OrologioSync.invia({
       'attivo': true,
       'fase': faseOrologio,
+      'registra': puoRegistrare,
+      'carico': _caricoInserito,
+      'rep': _repInseriti,
+      'consiglio': consiglioKg,
       'titolo': titolo,
       'testo': testo,
       'restMs': restMs,
@@ -722,52 +762,57 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   Widget _buildInCorso() {
     final e = _esercizioCorrente;
     final aTempo = e.aTempo;
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _suggerimento(aTempo
-              ? 'Tieni duro! Il timer scende da solo: a zero passi al recupero.'
-              : 'Stai dando il massimo! Premi Fine quando hai completato la serie.'),
-          const SizedBox(height: 20),
-          _hero('SERIE $_numeroSerie DI ${e.serieTotali}', e.nome, e.note),
-          const SizedBox(height: 20),
-          if (aTempo)
-            Center(child: _anelloCountdown(etichetta: 'rimanenti', orologio: true, dimensione: 230))
-          else
-            _iconaEsercizio(),
-          const SizedBox(height: 20),
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            children: [
-              _chip(aTempo ? 'Durata ${formattaDurata(e.repTarget)}' : 'Obiettivo ${e.repTarget} reps'),
-              if (!aTempo && _recordPersonale != null) _chip('🏆 Record: ${_recordPersonale!.carico} kg'),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _ultimaVoltaCard(_ultimaVolta, _numeroSerie, aTempo: aTempo),
-          ..._consiglioWidget(e, _numeroSerie),
-          const SizedBox(height: 32),
-          if (aTempo)
-            OutlinedButton.icon(
-              onPressed: _terminaPrima,
-              icon: const Icon(Icons.stop_circle_outlined),
-              label: const Text('Termina ora'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(56),
-                shape: const StadiumBorder(),
-              ),
-            )
-          else
-            FilledButton.icon(
-              onPressed: _premiFineSerie,
-              icon: const Icon(Icons.check),
-              label: const Text('Fine serie'),
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 12),
+                _hero('SERIE $_numeroSerie DI ${e.serieTotali}', e.nome, e.note),
+                const SizedBox(height: 16),
+                if (aTempo)
+                  Center(child: _anelloCountdown(etichetta: 'rimanenti', orologio: true, dimensione: 220))
+                else
+                  _iconaEsercizio(),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _chip(aTempo ? 'Durata ${formattaDurata(e.repTarget)}' : 'Obiettivo ${e.repTarget} reps'),
+                    if (!aTempo && _recordPersonale != null) _chip('🏆 Record: ${_recordPersonale!.carico} kg'),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _ultimaVoltaCard(_ultimaVolta, _numeroSerie, aTempo: aTempo),
+                ..._consiglioWidget(e, _numeroSerie),
+                const SizedBox(height: 16),
+              ],
             ),
-          const SizedBox(height: 72),
-        ],
-      ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Il pulsante resta sempre visibile in basso, senza scorrere.
+        if (aTempo)
+          OutlinedButton.icon(
+            onPressed: _terminaPrima,
+            icon: const Icon(Icons.stop_circle_outlined),
+            label: const Text('Termina ora'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(56),
+              shape: const StadiumBorder(),
+            ),
+          )
+        else
+          FilledButton.icon(
+            onPressed: _premiFineSerie,
+            icon: const Icon(Icons.check),
+            label: const Text('Fine serie'),
+          ),
+        const SizedBox(height: 16),
+      ],
     );
   }
 
