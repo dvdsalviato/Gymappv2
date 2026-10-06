@@ -6,6 +6,8 @@ import '../data/progressione.dart';
 import '../data/tempo.dart';
 import '../models/riepilogo.dart';
 import '../services/notifica_allenamento.dart';
+import '../amici/amici_servizio.dart';
+import '../amici/backup_servizio.dart';
 import '../services/orologio_sync.dart';
 import 'package:vibration/vibration.dart';
 import '../db/database_helper.dart';
@@ -507,6 +509,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         await DatabaseHelper.instance.insertSessione(widget.esercizi.first.schedaId);
       }
       await _caricaRiepilogo();
+      AmiciServizio.istanza.sincronizzaInBackground();
+      BackupServizio.istanza.backupAutomatico();
       if (!mounted) return;
       setState(() => _fase = FaseAllenamento.completato);
       return;

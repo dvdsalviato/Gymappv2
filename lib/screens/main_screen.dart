@@ -5,6 +5,8 @@ import '../theme/theme_controller.dart';
 import 'assistente_screen.dart';
 import 'calendario_screen.dart';
 import 'mappa_muscolare_screen.dart';
+import 'account_screen.dart';
+import 'amici_screen.dart';
 import 'home_screen.dart';
 import 'peso_screen.dart';
 import 'profilo_screen.dart';
@@ -97,6 +99,8 @@ class _MainScreenState extends State<MainScreen> {
         return const StoricoScreen();
       case 3:
         return const PesoScreen();
+      case 4:
+        return const AmiciScreen();
       default:
         return ProfiloScreen(incorporata: true, onSalvato: _aggiornaNome);
     }
@@ -115,11 +119,12 @@ class _MainScreenState extends State<MainScreen> {
       (Icons.inventory_2_outlined, Icons.inventory_2, 'Schede'),
       (Icons.bar_chart_outlined, Icons.bar_chart, 'Storico'),
       (Icons.monitor_weight_outlined, Icons.monitor_weight, 'Peso'),
+      (Icons.group_outlined, Icons.group, 'Amici'),
       (Icons.person_outline, Icons.person, 'Profilo'),
     ];
     return SafeArea(
       child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 6, 20, 14),
+        margin: const EdgeInsets.fromLTRB(12, 6, 12, 14),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: coloreCard(context),
@@ -138,8 +143,8 @@ class _MainScreenState extends State<MainScreen> {
                   onTap: () => setState(() => _indice = i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    width: 50,
-                    height: 50,
+                    width: 46,
+                    height: 46,
                     decoration: BoxDecoration(
                       color: _indice == i ? AppColors.accento : Colors.transparent,
                       shape: BoxShape.circle,
@@ -182,11 +187,22 @@ class _MainScreenState extends State<MainScreen> {
                   onChanged: (v) => ThemeController.cambia(v),
                 ),
                 ListTile(
+                  leading: const Icon(Icons.cloud_sync_outlined),
+                  title: const Text('Account e backup'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AccountScreen()),
+                    );
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.person_outline),
                   title: const Text('Il mio profilo'),
                   onTap: () {
                     Navigator.pop(context);
-                    setState(() => _indice = 4);
+                    setState(() => _indice = 5);
                   },
                 ),
                 ListTile(

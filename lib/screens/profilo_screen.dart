@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'account_screen.dart';
 import '../db/database_helper.dart';
 import '../theme/app_theme.dart';
 import '../widgets/campo_numero.dart';
@@ -123,6 +124,19 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AccountScreen()),
+                      ),
+                      icon: const Icon(Icons.cloud_sync_outlined),
+                      label: const Text('Account Google e backup'),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(52),
+                        shape: const StadiumBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
                     TextField(
                       controller: _nomeCtrl,
                       decoration: const InputDecoration(

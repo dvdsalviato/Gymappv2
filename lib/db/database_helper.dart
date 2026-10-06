@@ -246,6 +246,59 @@ class DatabaseHelper {
     return lista;
   }
 
+  static const List<String> _tabelleBackup = [
+    'schede',
+    'esercizi',
+    'storico',
+    'sessioni',
+    'peso_storico',
+    'profilo',
+  ];
+
+  /// Tutte le righe di tutte le tabelle (per il backup).
+  Future<Map<String, List<Map<String, dynamic>>>> esportaTutto() async {
+    final db = await database;
+    final risultato = <String, List<Map<String, dynamic>>>{};
+    for (final t in _tabelleBackup) {
+      final righe = await db.query(t);
+      risultato[t] = righe.map((r) => Map<String, dynamic>.from(r)).toList();
+    }
+    return risultato;
+  }
+
+  /// Sostituisce tutti i dati con quelli di un backup.
+  Future<void> importaTutto(Map<String, List<Map<String, dynamic>>> dati) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (final t in ['storico', 'sessioni', 'esercizi', 'schede', 'peso_storico', 'profilo']) {
+        await txn.delete(t);
+      }
+      for (final t in _tabelleBackup) {
+        for (final riga in dati[t] ?? const <Map<String, dynamic>>[]) {
+          await txn.insert(t, riga, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+      }
+    });
+  }
+
+  /// Il carico massimo registrato per ogni esercizio (esclusi quelli a tempo).
+  Future<List<Map<String, dynamic>>> getRecordPerEsercizio({int limite = 40}) async {
+    final db = await database;
+    return await db.rawQuery(
+      """
+      SELECT esercizi.nome AS nome, MAX(storico.carico) AS kg
+      FROM storico
+      JOIN esercizi ON esercizi.id = storico.esercizio_id
+      WHERE esercizi.a_tempo = 0
+      GROUP BY esercizi.nome
+      HAVING MAX(storico.carico) > 0
+      ORDER BY kg DESC
+      LIMIT ?
+      """,
+      [limite],
+    );
+  }
+
   /// Numero totale di serie registrate.
   Future<int> getTotaleSerie() async {
     final db = await database;
