@@ -542,6 +542,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         content: const Text('Cosa vuoi fare?'),
         actions: [
           TextButton.icon(
+            onPressed: () => Navigator.pop(context, 'interrompi'),
+            icon: const Icon(Icons.stop_circle_outlined),
+            label: const Text('Interrompi'),
+          ),
+          TextButton.icon(
             onPressed: () => Navigator.pop(context, 'home'),
             icon: const Icon(Icons.home_outlined),
             label: const Text('Home'),
@@ -554,6 +559,38 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         ],
       ),
     );
+
+    if (scelta == 'interrompi') {
+      final conferma = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Interrompere l\'allenamento?'),
+          content: const Text(
+            'L\'allenamento verrà chiuso senza poterlo riprendere. Le serie già registrate possono restare nello storico oppure essere eliminate ora.',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'elimina'), child: const Text('Interrompi ed elimina le serie')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, 'tieni'), child: const Text('Interrompi')),
+          ],
+        ),
+      );
+      if (conferma == null) {
+        // Ripensamento: torna al dialogo della pausa.
+        _dialogPausa = false;
+        if (mounted) await _mettiInPausa();
+        return;
+      }
+      _dialogPausa = false;
+      if (conferma == 'elimina') {
+        final inizio = GestoreSessione.inizioAllenamento;
+        if (inizio != null) await DatabaseHelper.instance.eliminaDaData(inizio);
+      }
+      GestoreSessione.inPausa = null;
+      if (mounted) Navigator.pop(context);
+      return;
+    }
 
     _dialogPausa = false;
     if (scelta == 'home') {
@@ -589,7 +626,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
           title: const Text('Allenamento'),
           leading: IconButton(
             icon: const Icon(Icons.close),
-            onPressed: () => Navigator.pop(context),
+            tooltip: 'Esci dall\'allenamento',
+            onPressed: _mettiInPausa,
           ),
           actions: [
             IconButton(

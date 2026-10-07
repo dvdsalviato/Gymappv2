@@ -299,6 +299,46 @@ class DatabaseHelper {
     );
   }
 
+  // ---- ELIMINAZIONE DELLO STORICO ----
+
+  Future<void> _pulisciSessioneGiorno(Database db, String giorno) async {
+    final r = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM storico WHERE substr(data, 1, 10) = ?',
+      [giorno],
+    );
+    if ((Sqflite.firstIntValue(r) ?? 0) == 0) {
+      await db.delete('sessioni', where: 'substr(data, 1, 10) = ?', whereArgs: [giorno]);
+    }
+  }
+
+  /// Elimina una singola serie dallo storico (e il giorno dal calendario se
+  /// non restano altre serie quel giorno).
+  Future<void> deleteStorico(int id) async {
+    final db = await database;
+    final righe = await db.query('storico', columns: ['data'], where: 'id = ?', whereArgs: [id]);
+    await db.delete('storico', where: 'id = ?', whereArgs: [id]);
+    if (righe.isNotEmpty) {
+      await _pulisciSessioneGiorno(db, (righe.first['data'] as String).substring(0, 10));
+    }
+  }
+
+  /// Elimina tutte le serie di un giorno (formato "aaaa-mm-gg") e la presenza
+  /// nel calendario.
+  Future<void> deleteStoricoGiorno(String giorno) async {
+    final db = await database;
+    await db.delete('storico', where: 'substr(data, 1, 10) = ?', whereArgs: [giorno]);
+    await db.delete('sessioni', where: 'substr(data, 1, 10) = ?', whereArgs: [giorno]);
+  }
+
+  /// Elimina quello che è stato registrato da [inizio] in poi (un allenamento
+  /// interrotto).
+  Future<void> eliminaDaData(DateTime inizio) async {
+    final db = await database;
+    final iso = inizio.toIso8601String();
+    await db.delete('storico', where: 'data >= ?', whereArgs: [iso]);
+    await db.delete('sessioni', where: 'data >= ?', whereArgs: [iso]);
+  }
+
   /// Numero totale di serie registrate.
   Future<int> getTotaleSerie() async {
     final db = await database;

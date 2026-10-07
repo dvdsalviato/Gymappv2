@@ -115,7 +115,30 @@ class _SchedeScreenState extends State<SchedeScreen> {
       }
       return;
     }
-    // Un allenamento nuovo sovrascrive un'eventuale pausa precedente.
+    // C'è già un allenamento in pausa: chiedi prima di sostituirlo.
+    final inPausa = GestoreSessione.inPausa;
+    if (inPausa != null) {
+      if (!mounted) return;
+      final scelta = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Hai già un allenamento in corso'),
+          content: Text(
+            '"${inPausa.nomeScheda}" è in pausa. Vuoi riprenderlo oppure interromperlo per iniziare "${scheda.nome}"?',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, 'annulla'), child: const Text('Annulla')),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'nuovo'), child: const Text('Interrompi e inizia')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, 'riprendi'), child: const Text('Riprendi')),
+          ],
+        ),
+      );
+      if (scelta == 'riprendi') {
+        await _riprendiAllenamento();
+        return;
+      }
+      if (scelta != 'nuovo') return;
+    }
     GestoreSessione.inPausa = null;
     if (mounted) {
       await Navigator.push(
@@ -244,6 +267,28 @@ class _SchedeScreenState extends State<SchedeScreen> {
     }
   }
 
+  Future<void> _scartaPausa() async {
+    final conferma = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Interrompere l\'allenamento in pausa?'),
+        content: const Text('Non potrai più riprenderlo. Le serie già registrate restano nello storico.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(minimumSize: const Size(100, 44)),
+            child: const Text('Interrompi'),
+          ),
+        ],
+      ),
+    );
+    if (conferma != true) return;
+    GestoreSessione.inPausa = null;
+    GestoreSessione.inizioAllenamento = null;
+    if (mounted) setState(() {});
+  }
+
   Widget _bannerPausa() {
     final sessione = GestoreSessione.inPausa!;
     return Container(
@@ -272,7 +317,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
                 tooltip: 'Annulla',
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                onPressed: () => setState(() => GestoreSessione.inPausa = null),
+                onPressed: _scartaPausa,
                 icon: const Icon(Icons.close, size: 20),
               ),
             ],
