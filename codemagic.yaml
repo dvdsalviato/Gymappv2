@@ -77,6 +77,24 @@ workflows:
         script: dart run flutter_launcher_icons
       - name: Build APK
         script: flutter build apk --release
+      - name: Diagnostica firma e pacchetto
+        script: |
+          echo "=== Keystore usato da Codemagic ==="
+          KS=$(keytool -list -v -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" 2>/dev/null | grep 'SHA1:' | head -1 | sed 's/.*SHA1: *//' | tr -d ':' | tr 'A-F' 'a-f')
+          echo "SHA-1 del keystore:  $KS"
+          APKSIGNER=$(ls -d "$ANDROID_SDK_ROOT"/build-tools/*/apksigner "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          echo "apksigner trovato: $APKSIGNER"
+          APK=$("$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk 2>&1 | grep 'certificate SHA-1 digest' | head -1 | sed 's/.*digest: *//')
+          echo "SHA-1 dell'APK:      $APK"
+          if [ -n "$KS" ] && [ "$KS" = "$APK" ]; then
+            echo "RISULTATO: FIRMA OK, l'APK e' firmato con il tuo keystore"
+          else
+            echo "RISULTATO: FIRMA DIVERSA, l'APK NON e' firmato con il keystore"
+          fi
+          echo "SHA-1 da registrare in Firebase: $(echo "$APK" | sed 's/../&:/g; s/:$//' | tr 'a-f' 'A-F')"
+          echo "=== Nome pacchetto ==="
+          grep -n "applicationId\|namespace" android/app/build.gradle* || true
+          true
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
 
