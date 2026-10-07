@@ -59,6 +59,23 @@ class _AccountScreenState extends State<AccountScreen> {
 
   void _avviso(String testo) {
     if (!mounted) return;
+    if (testo.length > 90) {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Attenzione'),
+          content: SingleChildScrollView(child: SelectableText(testo)),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: FilledButton.styleFrom(minimumSize: const Size(90, 44)),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(testo)));
   }
 

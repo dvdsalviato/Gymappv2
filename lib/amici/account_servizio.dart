@@ -36,8 +36,18 @@ class AccountServizio {
       account = await GoogleSignIn.instance.authenticate();
     } catch (e) {
       final testo = e.toString();
-      if (testo.toLowerCase().contains('cancel')) throw AmiciErrore('Accesso annullato.');
-      throw AmiciErrore('Accesso con Google non riuscito: $testo');
+      final minuscolo = testo.toLowerCase();
+      if (minuscolo.contains('cancelled by the user') ||
+          minuscolo.contains('canceled by the user') ||
+          minuscolo.contains('user cancel')) {
+        throw AmiciErrore('Accesso annullato.');
+      }
+      // Google a volte segnala come "annullato" anche un errore di configurazione:
+      // mostro il testo vero per capire cosa non va.
+      throw AmiciErrore(
+        'Accesso con Google non riuscito.\n\nDettagli tecnici:\n$testo\n\n'
+        'Di solito dipende da SHA-1, nome pacchetto o ID client Web non corrispondenti in Firebase.',
+      );
     }
     final conto = account;
     if (conto == null) throw AmiciErrore('Accesso non riuscito.');
