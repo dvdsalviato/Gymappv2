@@ -204,6 +204,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
   bool _loading = true;
   List<Map<String, dynamic>> _recenti = [];
   Map<String, int> _volumi = {};
+  int _giorni = 7;
   String? _selezionato;
 
   @override
@@ -212,8 +213,14 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
     _carica();
   }
 
+  /// Le soglie dei colori valgono per una settimana: sulle finestre più lunghe
+  /// uso la media settimanale.
+  int _perSettimana(int n) => _giorni == 7 ? n : (n * 7 / _giorni).ceil();
+
+  Map<String, int> get _volumiColore => {for (final e in _volumi.entries) e.key: _perSettimana(e.value)};
+
   Future<void> _carica() async {
-    final recenti = await DatabaseHelper.instance.getEserciziRecenti(giorni: 7);
+    final recenti = await DatabaseHelper.instance.getEserciziRecenti(giorni: _giorni);
     final volumi = <String, int>{};
     for (final r in recenti) {
       final id = muscoloDi(r['nome'] as String, r['categoria'] as String);
@@ -230,11 +237,13 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
 
   String _fmtKg(num v) => v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 
-  String _giudizio(int n) {
-    if (n == 0) return 'A riposo: nessuna serie negli ultimi 7 giorni.';
-    if (n <= 8) return 'Volume basso (1-8 serie): va bene per mantenere, aumenta se vuoi crescere.';
-    if (n <= 18) return 'Volume ottimale: 9-18 serie a settimana.';
-    return 'Volume alto (oltre 18 serie): valuta di lasciarlo recuperare.';
+  String _giudizio(int totale) {
+    final n = _perSettimana(totale);
+    final media = _giorni == 7 ? '' : ' (media settimanale)';
+    if (totale == 0) return 'A riposo: nessuna serie negli ultimi $_giorni giorni.';
+    if (n <= 8) return 'Volume basso (1-8 serie a settimana)$media: va bene per mantenere, aumenta se vuoi crescere.';
+    if (n <= 18) return 'Volume ottimale: 9-18 serie a settimana$media.';
+    return 'Volume alto (oltre 18 serie a settimana)$media: valuta di lasciarlo recuperare.';
   }
 
   void _apriDettaglio(String id) {
@@ -258,7 +267,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
             children: [
               Row(
                 children: [
-                  Container(width: 14, height: 14, decoration: BoxDecoration(color: coloreVolume(n), shape: BoxShape.circle)),
+                  Container(width: 14, height: 14, decoration: BoxDecoration(color: coloreVolume(_perSettimana(n)), shape: BoxShape.circle)),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -272,7 +281,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
               const SizedBox(height: 6),
               Text(_giudizio(n), style: TextStyle(color: Colors.grey.shade500)),
               const SizedBox(height: 22),
-              _titoloSezione('FATTO NEGLI ULTIMI 7 GIORNI'),
+              _titoloSezione('FATTO NEGLI ULTIMI $_giorni GIORNI'),
               if (fatti.isEmpty)
                 Text('Nessun esercizio per questo muscolo.', style: TextStyle(color: Colors.grey.shade500))
               else
@@ -373,7 +382,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                           value: (_volumi[m.id] ?? 0) / massimo,
                           minHeight: 12,
                           backgroundColor: coloreChip(context),
-                          color: coloreVolume(_volumi[m.id] ?? 0),
+                          color: coloreVolume(_perSettimana(_volumi[m.id] ?? 0)),
                         ),
                       ),
                     ),
@@ -404,9 +413,44 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(width: 10, height: 10, decoration: BoxDecoration(color: coloreVolume(n), shape: BoxShape.circle)),
+            Container(width: 10, height: 10, decoration: BoxDecoration(color: coloreVolume(_perSettimana(n)), shape: BoxShape.circle)),
             const SizedBox(width: 8),
             Text('${m.nome} · $n', style: const TextStyle(fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Esercizi fatti ma non attribuibili a nessun muscolo (senza categoria).
+  Widget _avvisoNonAssegnati() {
+    final nomi = <String>{};
+    for (final r in _recenti) {
+      final cat = r['categoria'] as String;
+      if (cat == 'Cardio') continue;
+      if (muscoloDi(r['nome'] as String, cat) == null) nomi.add(r['nome'] as String);
+    }
+    if (nomi.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.orange.withOpacity(0.5)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Esercizi non contati', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text(
+              'Non so a quale muscolo appartengono: ${nomi.join(', ')}. '
+              'Apri la scheda, tocca l\'esercizio e scegli la categoria: poi compariranno qui.',
+              style: TextStyle(color: Colors.grey.shade400, fontSize: 13, height: 1.3),
+            ),
           ],
         ),
       ),
@@ -450,8 +494,28 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Serie degli ultimi 7 giorni. Tocca un muscolo per vedere cosa hai fatto e cosa fare.',
+                      'Serie degli ultimi $_giorni giorni. Tocca un muscolo per vedere cosa hai fatto e cosa fare.',
                       style: TextStyle(color: Colors.grey.shade500),
+                    ),
+                    const SizedBox(height: 12),
+                    SegmentedButton<int>(
+                      segments: const [
+                        ButtonSegment(value: 7, label: Text('7 giorni')),
+                        ButtonSegment(value: 14, label: Text('14 giorni')),
+                        ButtonSegment(value: 30, label: Text('30 giorni')),
+                      ],
+                      selected: {_giorni},
+                      onSelectionChanged: (v) {
+                        setState(() {
+                          _giorni = v.first;
+                          _loading = true;
+                        });
+                        _carica();
+                      },
+                      style: SegmentedButton.styleFrom(
+                        selectedBackgroundColor: AppColors.accento,
+                        selectedForegroundColor: Colors.black,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     _classifica(),
@@ -471,7 +535,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                               Expanded(
                                 child: _Corpo(
                                   regioni: _fronte,
-                                  volumi: _volumi,
+                                  volumi: _volumiColore,
                                   selezionato: _selezionato,
                                   onTap: _apriDettaglio,
                                 ),
@@ -480,7 +544,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                               Expanded(
                                 child: _Corpo(
                                   regioni: _retro,
-                                  volumi: _volumi,
+                                  volumi: _volumiColore,
                                   selezionato: _selezionato,
                                   onTap: _apriDettaglio,
                                 ),
@@ -512,6 +576,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                       runSpacing: 10,
                       children: muscoli.map(_chipMuscolo).toList(),
                     ),
+                    _avvisoNonAssegnati(),
                     const SizedBox(height: 18),
                     _legenda(),
                   ],

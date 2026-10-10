@@ -26,7 +26,12 @@ const List<Muscolo> muscoli = [
 /// Restituisce null per gli esercizi che non si riescono a collocare.
 String? muscoloDi(String nome, String categoria) {
   final n = nome.toLowerCase();
-  switch (categoria) {
+  var cat = categoria;
+  if (!_categorieMuscolari.contains(cat) && cat != 'Cardio') {
+    // Esercizio senza categoria ("Altro"): la ricavo dal catalogo o dal nome.
+    cat = _categoriaDaNome(nome) ?? categoria;
+  }
+  switch (cat) {
     case 'Petto':
       return 'pettorali';
     case 'Spalle':
@@ -52,6 +57,38 @@ String? muscoloDi(String nome, String categoria) {
         return 'glutei';
       }
       return 'quadricipiti';
+  }
+  return null;
+}
+
+const Set<String> _categorieMuscolari = {'Petto', 'Spalle', 'Bicipiti', 'Tricipiti', 'Core', 'Schiena', 'Gambe'};
+
+String? _categoriaDaNome(String nome) {
+  final n = nome.toLowerCase().trim();
+  for (final e in catalogoEsercizi) {
+    if (e.nome.toLowerCase() == n) return e.categoria;
+  }
+  bool ha(List<String> parole) => parole.any(n.contains);
+  if (ha(['squat', 'leg press', 'leg extension', 'leg curl', 'affond', 'lunge', 'calf', 'polpacc', 'hip thrust',
+      'glute', 'step up', 'pressa', 'abductor', 'adductor', 'nordic', 'stacco rumeno', 'romanian', 'gamb'])) {
+    return 'Gambe';
+  }
+  if (ha(['lat ', 'lat machine', 'pulldown', 'pull down', 'trazion', 'pull-up', 'pull up', 'chin', 'rematore',
+      'row', 'pulley', 'shrug', 'stacco', 'deadlift', 'hyperextension', 'back extension', 'good morning',
+      'dorsal', 'schiena'])) {
+    return 'Schiena';
+  }
+  if (ha(['panca', 'bench', 'chest', 'croci', 'fly', 'piegament', 'push-up', 'push up', 'pettor', 'pec deck', 'dips'])) {
+    return 'Petto';
+  }
+  if (ha(['spalle', 'shoulder', 'military', 'arnold', 'alzate', 'lateral raise', 'face pull', 'overhead press',
+      'lento avanti', 'deltoid'])) {
+    return 'Spalle';
+  }
+  if (ha(['curl', 'bicip', 'hammer', 'preacher', 'scott'])) return 'Bicipiti';
+  if (ha(['tricip', 'french', 'pushdown', 'push down', 'skull', 'kickback', 'estensioni', 'extension'])) return 'Tricipiti';
+  if (ha(['plank', 'crunch', 'addom', 'core', 'sit-up', 'sit up', 'russian twist', 'leg raise', 'ab wheel', 'hollow'])) {
+    return 'Core';
   }
   return null;
 }
