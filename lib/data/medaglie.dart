@@ -67,18 +67,6 @@ const List<Medaglia> medaglie = [
   Medaglia('peso30', 'Occhio alla bilancia', '30 pesi registrati', Icons.monitor_weight, 30, 'pesi', 'oro'),
   Medaglia('amico1', 'In compagnia', 'Aggiungi il tuo primo amico', Icons.group, 1, 'amici', 'bronzo'),
   Medaglia('amici5', 'Squadra', '5 amici in palestra', Icons.groups, 5, 'amici', 'argento'),
-  // Rango
-  Medaglia('rango1', 'Rango Bronzo', 'Raggiungi il rango Bronzo', Icons.shield, 1, 'rango', 'bronzo'),
-  Medaglia('rango2', 'Rango Argento', 'Raggiungi il rango Argento', Icons.shield, 2, 'rango', 'argento'),
-  Medaglia('rango3', 'Rango Oro', 'Raggiungi il rango Oro', Icons.shield, 3, 'rango', 'oro'),
-  Medaglia('rango4', 'Rango Platino', 'Raggiungi il rango Platino', Icons.shield, 4, 'rango', 'platino'),
-  Medaglia('rango5', 'Rango Diamante', 'Raggiungi il rango Diamante', Icons.diamond, 5, 'rango', 'platino'),
-  Medaglia('rango6', 'Rango Leggenda', 'Raggiungi il rango Leggenda', Icons.auto_awesome, 6, 'rango', 'platino'),
-  // Gorilla
-  Medaglia('pet5', 'Dieta del Gorilla', 'Il tuo Gorilla ha perso 5 kg', Icons.pets, 5, 'pet', 'bronzo'),
-  Medaglia('pet15', 'Gorilla in forma', 'Il tuo Gorilla ha perso 15 kg', Icons.pets, 15, 'pet', 'argento'),
-  Medaglia('pet30', 'Gorilla scolpito', 'Il tuo Gorilla ha perso 30 kg', Icons.pets, 30, 'pet', 'oro'),
-  Medaglia('pet40', 'Gorilla Alpha', 'Il tuo Gorilla ha raggiunto il peso forma', Icons.pets, 40, 'pet', 'platino'),
 ];
 
 int valoreMedaglia(Medaglia m, StatisticheUtente s) {
@@ -105,10 +93,6 @@ int valoreMedaglia(Medaglia m, StatisticheUtente s) {
       return s.muscoliSettimana;
     case 'amici':
       return s.amici;
-    case 'rango':
-      return s.rango;
-    case 'pet':
-      return s.kgGorilla;
   }
   return 0;
 }
@@ -125,7 +109,10 @@ class EsitoMedaglie {
 /// anche se poi la serie si interrompe) e dice quali sono nuove.
 Future<EsitoMedaglie> aggiornaMedaglie(StatisticheUtente s) async {
   final prefs = await SharedPreferences.getInstance();
-  final prima = (prefs.getStringList(_chiaveSbloccate) ?? <String>[]).toSet();
+  // Si scartano gli id di medaglie che non esistono più (es. rango e gorilla).
+  final validi = medaglie.map((m) => m.id).toSet();
+  final salvate = prefs.getStringList(_chiaveSbloccate) ?? <String>[];
+  final prima = salvate.where(validi.contains).toSet();
   final ora = Set<String>.of(prima);
   final nuove = <Medaglia>[];
   for (final m in medaglie) {
@@ -134,6 +121,8 @@ Future<EsitoMedaglie> aggiornaMedaglie(StatisticheUtente s) async {
       nuove.add(m);
     }
   }
-  if (nuove.isNotEmpty) await prefs.setStringList(_chiaveSbloccate, ora.toList());
+  if (nuove.isNotEmpty || prima.length != salvate.length) {
+    await prefs.setStringList(_chiaveSbloccate, ora.toList());
+  }
   return EsitoMedaglie(ora, nuove);
 }

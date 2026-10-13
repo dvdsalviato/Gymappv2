@@ -1,8 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../db/database_helper.dart';
 import 'muscoli.dart';
-import 'pet.dart';
-import 'rango.dart';
 
 const chiaveObiettivoSettimanale = 'obiettivo_settimanale';
 const obiettivoPredefinito = 3;
@@ -50,8 +48,6 @@ class StatisticheUtente {
   final int serieATempo;
   final int muscoliSettimana;
   final int amici;
-  final int rango;
-  final int kgGorilla;
 
   const StatisticheUtente({
     this.volumeKg = 0,
@@ -61,8 +57,6 @@ class StatisticheUtente {
     this.serieATempo = 0,
     this.muscoliSettimana = 0,
     this.amici = 0,
-    this.rango = 0,
-    this.kgGorilla = 0,
     required this.presenze,
     required this.allenamenti,
     required this.serie,
@@ -108,15 +102,6 @@ Future<StatisticheUtente> caricaStatistiche() async {
     final m = muscoloDi(r['nome'] as String, r['categoria'] as String);
     if (m != null) muscoliSet.add(m);
   }
-  var livelloRango = 0;
-  try {
-    final rangoStato = await calcolaRango();
-    if (rangoStato.alzateConDati > 0) livelloRango = rangoStato.livelloGenerale;
-  } catch (_) {}
-  var kgGorilla = 0;
-  try {
-    kgGorilla = (await PetServizio.stato()).maxKgPersi.floor();
-  } catch (_) {}
 
   return StatisticheUtente(
     volumeKg: volume,
@@ -126,8 +111,6 @@ Future<StatisticheUtente> caricaStatistiche() async {
     serieATempo: aTempo,
     muscoliSettimana: muscoliSet.length,
     amici: prefs.getInt('amici_conteggio') ?? 0,
-    rango: livelloRango,
-    kgGorilla: kgGorilla,
     presenze: presenze,
     allenamenti: presenze.length,
     serie: serie,

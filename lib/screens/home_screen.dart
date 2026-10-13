@@ -7,8 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../data/contenuti.dart';
 import '../data/medaglie.dart';
-import '../data/pet.dart';
-import '../data/rango.dart';
 import '../data/statistiche.dart';
 import '../db/database_helper.dart';
 import '../state/sessione_allenamento.dart';
@@ -16,11 +14,7 @@ import '../theme/app_theme.dart';
 import 'assistente_screen.dart';
 import 'calendario_screen.dart';
 import 'mappa_muscolare_screen.dart';
-import '../widgets/emblema_rango.dart';
-import '../widgets/gorilla_painter.dart';
 import 'medaglie_screen.dart';
-import 'pet_screen.dart';
-import 'rango_screen.dart';
 import 'workout_screen.dart';
 
 class _Notizia {
@@ -79,8 +73,6 @@ class _HomeScreenState extends State<HomeScreen> {
   double? _peso;
   double? _deltaPeso;
   StatisticheUtente? _stat;
-  RangoStato? _rango;
-  StatoPet? _pet;
   int _medaglieSbloccate = 0;
   List<_Notizia> _notizie = [];
   int _categoria = 0;
@@ -122,18 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final stat = await caricaStatistiche();
     final esito = await aggiornaMedaglie(stat);
-    RangoStato? rango;
-    StatoPet? pet;
-    try {
-      rango = await calcolaRango();
-    } catch (_) {}
-    try {
-      pet = await PetServizio.stato();
-    } catch (_) {}
     if (!mounted) return;
     setState(() {
-      _rango = rango;
-      _pet = pet;
       _presenze = presenze;
       _serie7 = volumi.values.fold(0, (a, b) => a + b);
       _peso = peso;
@@ -488,122 +470,6 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(width: 10),
         _tessera(_peso == null ? '--' : _fmt(_peso!), 'Peso (kg)', nota: nota),
       ],
-    );
-  }
-
-  Widget _giocoRiga() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(child: _tileRango()),
-        const SizedBox(width: 10),
-        Expanded(child: _tilePet()),
-      ],
-    );
-  }
-
-  Widget _tileRango() {
-    final r = _rango;
-    final livello = r?.livello ?? livelliRango.first;
-    final prossimo = r?.prossimo;
-    final haDati = (r?.alzateConDati ?? 0) > 0;
-    return GestureDetector(
-      onTap: () async {
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => const RangoScreen()));
-        if (mounted) _carica();
-      },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(24)),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                EmblemaRango(livello: r?.livelloGenerale ?? 0, dimensione: 48),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('RANGO', style: TextStyle(color: Colors.grey.shade500, fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.w700)),
-                      Text(
-                        livello.nome,
-                        style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.w700, color: livello.colore),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            if (haDati && prossimo != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: LinearProgressIndicator(
-                  value: r!.progressoGenerale,
-                  minHeight: 6,
-                  backgroundColor: coloreChip(context),
-                  color: prossimo.colore,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text('Verso ${prossimo.nome}', style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
-            ] else
-              Text(
-                haDati ? 'Livello massimo!' : 'Registra le alzate principali',
-                style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _tilePet() {
-    final p = _pet;
-    return GestureDetector(
-      onTap: () async {
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => const PetScreen()));
-        if (mounted) _carica();
-      },
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(24)),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 52,
-              height: 60,
-              child: p == null
-                  ? const SizedBox.shrink()
-                  : CustomPaint(painter: GorillaPainter(grasso: p.grasso, umore: p.umore)),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    (p?.nome ?? 'Kong').toUpperCase(),
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 10, letterSpacing: 1.4, fontWeight: FontWeight.w700),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    p == null ? '--' : '${p.peso.toStringAsFixed(1).replaceAll('.', ',')} kg',
-                    style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.accento),
-                  ),
-                  Text(
-                    p == null ? '' : p.stadio,
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1012,8 +878,6 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 18),
           _cardAllenamento(),
           const SizedBox(height: 12),
-          _giocoRiga(),
-          const SizedBox(height: 14),
           _etichetta('QUESTA SETTIMANA'),
           _obiettivoCard(),
           const SizedBox(height: 10),

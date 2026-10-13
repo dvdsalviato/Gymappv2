@@ -18,7 +18,6 @@ import '../theme/app_theme.dart';
 import '../widgets/campo_numero.dart';
 import '../widgets/dialogo_azioni.dart';
 import '../data/statistiche.dart';
-import '../data/pet.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final List<Esercizio> esercizi;
@@ -51,7 +50,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   List<StoricoEntry> _ultimaVolta = [];
   bool _caricamentoUltimo = true;
   RiepilogoSessione? _riepilogo;
-  String _nomePet = 'Kong';
 
   // Countdown del riposo: l'anello è guidato da un AnimationController (si
   // muove a ogni fotogramma, quindi è fluido); la fine è decisa da un timer
@@ -939,9 +937,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   }
 
   Future<void> _caricaRiepilogo() async {
-    try {
-      _nomePet = await PetServizio.nome();
-    } catch (_) {}
     final inizio = GestoreSessione.inizioAllenamento ?? DateTime.now().subtract(const Duration(hours: 2));
     try {
       final righe = await DatabaseHelper.instance.getEserciziDaData(inizio);
@@ -1130,18 +1125,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
             ),
           ],
           const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.accento.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Text(
-              '🦍 $_nomePet ha perso circa ${((r.serie > petSerieMaxGiorno ? petSerieMaxGiorno : r.serie) * petKgPerSerie).toStringAsFixed(1).replaceAll('.', ',')} kg grazie a te!',
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-            ),
-          ),
           const SizedBox(height: 14),
           for (final e in r.esercizi)
             Padding(

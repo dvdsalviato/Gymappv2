@@ -40,14 +40,9 @@ class DatabaseHelper {
         }
       },
       onCreate: _onCreate,
-      onUpgrade: (db, oldVersion, newVersion) async {
-        await db.execute('DROP TABLE IF EXISTS profilo');
-        await db.execute('DROP TABLE IF EXISTS sessioni');
-        await db.execute('DROP TABLE IF EXISTS storico');
-        await db.execute('DROP TABLE IF EXISTS esercizi');
-        await db.execute('DROP TABLE IF EXISTS schede');
-        await _onCreate(db, newVersion);
-      },
+      // Nessuna cancellazione: le modifiche allo schema vanno fatte in modo
+      // additivo (come per a_tempo in onOpen) per non perdere schede e storico.
+      onUpgrade: (db, oldVersion, newVersion) async {},
     );
   }
 
@@ -299,33 +294,7 @@ class DatabaseHelper {
     );
   }
 
-  // ---- STATISTICHE PER IL "GIOCO" ----
-
-  /// Massimale stimato (formula di Epley, con al massimo 12 ripetizioni) per
-  /// ogni esercizio a carico.
-  Future<List<Map<String, dynamic>>> getE1rmPerEsercizio() async {
-    final db = await database;
-    return await db.rawQuery(
-      """
-      SELECT esercizi.nome AS nome,
-             MAX(storico.carico * (1.0 + MIN(storico.rep, 12) / 30.0)) AS e1rm
-      FROM storico
-      JOIN esercizi ON esercizi.id = storico.esercizio_id
-      WHERE esercizi.a_tempo = 0 AND storico.carico > 0 AND storico.rep > 0
-      GROUP BY esercizi.nome
-      """,
-    );
-  }
-
-  /// Serie fatte per ogni giorno ("aaaa-mm-gg") a partire da [dal].
-  Future<Map<String, int>> getSeriePerGiorno(String dal) async {
-    final db = await database;
-    final righe = await db.rawQuery(
-      'SELECT substr(data, 1, 10) AS g, COUNT(*) AS n FROM storico WHERE substr(data, 1, 10) >= ? GROUP BY g',
-      [dal],
-    );
-    return {for (final r in righe) r['g'] as String: (r['n'] as num).toInt()};
-  }
+  // ---- STATISTICHE ----
 
   /// Chilogrammi totali sollevati (carico x ripetizioni).
   Future<double> getVolumeTotale() async {
