@@ -16,6 +16,9 @@ import '../models/storico.dart';
 import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
 import '../widgets/campo_numero.dart';
+import '../widgets/dialogo_azioni.dart';
+import '../data/statistiche.dart';
+import '../data/pet.dart';
 
 class WorkoutScreen extends StatefulWidget {
   final List<Esercizio> esercizi;
@@ -48,6 +51,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   List<StoricoEntry> _ultimaVolta = [];
   bool _caricamentoUltimo = true;
   RiepilogoSessione? _riepilogo;
+  String _nomePet = 'Kong';
 
   // Countdown del riposo: l'anello è guidato da un AnimationController (si
   // muove a ogni fotogramma, quindi è fluido); la fine è decisa da un timer
@@ -115,7 +119,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     _riposoCtrl.dispose();
     NotificaAllenamento.chiudi();
     // Se non è stato messo in pausa, l'allenamento è finito (o abbandonato).
-    if (GestoreSessione.inPausa == null) GestoreSessione.inizioAllenamento = null;
+    if (GestoreSessione.inPausa == null) {
+      GestoreSessione.inizioAllenamento = null;
+      GestoreSessione.cancellaSalvata();
+    }
     super.dispose();
   }
 
@@ -219,6 +226,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     _repInseriti = rep;
 
     final nuovoRecord = carico > 0 && (recordPrecedente == null || carico > recordPrecedente.carico);
+    if (nuovoRecord) contaRecord();
     if (nuovoRecord && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('🏆 Nuovo record personale: $carico kg!')),
@@ -342,6 +350,21 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     _completaSerieATempo(fatti < 1 ? 1 : fatti);
   }
 
+  /// Salva lo stato dell'allenamento, così se l'app si chiude si può riprendere.
+  void _salvaSuDisco() {
+    if (_coda.isEmpty || _fase == FaseAllenamento.completato) return;
+    final inRiposo = _fase == FaseAllenamento.riposo;
+    GestoreSessione.salva(
+      SessioneAllenamentoInPausa(
+        coda: _coda,
+        nomeScheda: widget.nomeScheda,
+        fase: inRiposo ? FaseAllenamento.riposo : FaseAllenamento.pronto,
+        secondiRimanenti: inRiposo ? _secondiResiduiPrecisi().ceil() : 0,
+        secondiTotali: inRiposo ? _secondiTotali : 0,
+      ),
+    );
+  }
+
   /// Messaggi dall'orologio: comandi semplici o registrazione di una serie.
   void _gestisciMessaggioOrologio(Map<String, dynamic> m) {
     final azione = m['azione'];
@@ -381,6 +404,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         _firmaNotifica = 'fine';
         NotificaAllenamento.chiudi();
         OrologioSync.invia({'attivo': false});
+        GestoreSessione.cancellaSalvata();
       }
       return;
     }
@@ -413,6 +437,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     if (firma == _firmaNotifica) return;
     _firmaNotifica = firma;
     NotificaAllenamento.aggiorna(titolo: titolo, testo: testo, finoA: finoA, saltabile: saltabile);
+    _salvaSuDisco();
 
     final String faseOrologio;
     if (_dialogPausa) {
@@ -534,49 +559,30 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     }
     _dialogPausa = true;
     _fermaTimerRiposo();
-    final scelta = await showDialog<String>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('Allenamento in pausa'),
-        content: const Text('Cosa vuoi fare?'),
-        actions: [
-          TextButton.icon(
-            onPressed: () => Navigator.pop(context, 'interrompi'),
-            icon: const Icon(Icons.stop_circle_outlined),
-            label: const Text('Interrompi'),
-          ),
-          TextButton.icon(
-            onPressed: () => Navigator.pop(context, 'home'),
-            icon: const Icon(Icons.home_outlined),
-            label: const Text('Home'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.pop(context, 'riprendi'),
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('Riprendi'),
-          ),
-        ],
-      ),
+    final scelta = await mostraDialogoAzioni<String>(
+      context,
+      titolo: 'Allenamento in pausa',
+      messaggio: 'Cosa vuoi fare?',
+      azioni: const [
+        AzioneDialogo('Riprendi', Icons.play_arrow, 'riprendi', stile: StileAzione.primaria),
+        AzioneDialogo('Pausa ed esci', Icons.pause_circle_outline, 'home'),
+        AzioneDialogo('Interrompi', Icons.stop_circle_outlined, 'interrompi', stile: StileAzione.pericolo),
+      ],
     );
 
     if (scelta == 'interrompi') {
-      final conferma = await showDialog<String>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Interrompere l\'allenamento?'),
-          content: const Text(
+      final conferma = await mostraDialogoAzioni<String>(
+        context,
+        titolo: 'Interrompere l\'allenamento?',
+        messaggio:
             'L\'allenamento verrà chiuso senza poterlo riprendere. Le serie già registrate possono restare nello storico oppure essere eliminate ora.',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
-            TextButton(onPressed: () => Navigator.pop(ctx, 'elimina'), child: const Text('Interrompi ed elimina le serie')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, 'tieni'), child: const Text('Interrompi')),
-          ],
-        ),
+        azioni: const [
+          AzioneDialogo('Annulla', Icons.arrow_back, 'annulla', stile: StileAzione.primaria),
+          AzioneDialogo('Interrompi e tieni le serie', Icons.stop_circle_outlined, 'tieni'),
+          AzioneDialogo('Interrompi ed elimina le serie', Icons.delete_outline, 'elimina', stile: StileAzione.pericolo),
+        ],
       );
-      if (conferma == null) {
+      if (conferma == null || conferma == 'annulla') {
         // Ripensamento: torna al dialogo della pausa.
         _dialogPausa = false;
         if (mounted) await _mettiInPausa();
@@ -602,6 +608,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         secondiRimanenti: fasePausata == FaseAllenamento.riposo ? _secondiRimanenti : 0,
         secondiTotali: fasePausata == FaseAllenamento.riposo ? _secondiTotali : 0,
       );
+      await GestoreSessione.salva(GestoreSessione.inPausa!);
       if (mounted) Navigator.pop(context);
     } else if (scelta == 'riprendi' &&
         (_fase == FaseAllenamento.riposo || (_fase == FaseAllenamento.inCorso && _esercizioCorrente.aTempo))) {
@@ -932,6 +939,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   }
 
   Future<void> _caricaRiepilogo() async {
+    try {
+      _nomePet = await PetServizio.nome();
+    } catch (_) {}
     final inizio = GestoreSessione.inizioAllenamento ?? DateTime.now().subtract(const Duration(hours: 2));
     try {
       final righe = await DatabaseHelper.instance.getEserciziDaData(inizio);
@@ -1119,7 +1129,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
               ],
             ),
           ],
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.accento.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              '🦍 $_nomePet ha perso circa ${((r.serie > petSerieMaxGiorno ? petSerieMaxGiorno : r.serie) * petKgPerSerie).toStringAsFixed(1).replaceAll('.', ',')} kg grazie a te!',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 14),
           for (final e in r.esercizi)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 5),

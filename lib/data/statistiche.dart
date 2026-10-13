@@ -1,5 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import '../db/database_helper.dart';
+import 'muscoli.dart';
+import 'pet.dart';
+import 'rango.dart';
 
 const chiaveObiettivoSettimanale = 'obiettivo_settimanale';
 const obiettivoPredefinito = 3;
@@ -40,8 +43,26 @@ class StatisticheUtente {
   final int pesi;
   final int obiettivo;
   final int allenamentiSettimana;
+  final double volumeKg;
+  final int record;
+  final int mattiniero;
+  final int nottambulo;
+  final int serieATempo;
+  final int muscoliSettimana;
+  final int amici;
+  final int rango;
+  final int kgGorilla;
 
   const StatisticheUtente({
+    this.volumeKg = 0,
+    this.record = 0,
+    this.mattiniero = 0,
+    this.nottambulo = 0,
+    this.serieATempo = 0,
+    this.muscoliSettimana = 0,
+    this.amici = 0,
+    this.rango = 0,
+    this.kgGorilla = 0,
     required this.presenze,
     required this.allenamenti,
     required this.serie,
@@ -50,6 +71,12 @@ class StatisticheUtente {
     required this.obiettivo,
     required this.allenamentiSettimana,
   });
+}
+
+/// Conta un record personale battuto (per le medaglie).
+Future<void> contaRecord() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setInt('record_totali', (prefs.getInt('record_totali') ?? 0) + 1);
 }
 
 Future<int> leggiObiettivoSettimanale() async {
@@ -69,7 +96,38 @@ Future<StatisticheUtente> caricaStatistiche() async {
   final pesi = await db.getPesi();
   final obiettivo = await leggiObiettivoSettimanale();
   final oggi = DateTime.now();
+  final prefs = await SharedPreferences.getInstance();
+
+  final volume = await db.getVolumeTotale();
+  final mattina = await db.getGiorniConOra(0, 6);
+  final sera = await db.getGiorniConOra(22, 23);
+  final aTempo = await db.getSerieATempo();
+  final recenti = await db.getEserciziRecenti(giorni: 7);
+  final muscoliSet = <String>{};
+  for (final r in recenti) {
+    final m = muscoloDi(r['nome'] as String, r['categoria'] as String);
+    if (m != null) muscoliSet.add(m);
+  }
+  var livelloRango = 0;
+  try {
+    final rangoStato = await calcolaRango();
+    if (rangoStato.alzateConDati > 0) livelloRango = rangoStato.livelloGenerale;
+  } catch (_) {}
+  var kgGorilla = 0;
+  try {
+    kgGorilla = (await PetServizio.stato()).maxKgPersi.floor();
+  } catch (_) {}
+
   return StatisticheUtente(
+    volumeKg: volume,
+    record: prefs.getInt('record_totali') ?? 0,
+    mattiniero: mattina,
+    nottambulo: sera,
+    serieATempo: aTempo,
+    muscoliSettimana: muscoliSet.length,
+    amici: prefs.getInt('amici_conteggio') ?? 0,
+    rango: livelloRango,
+    kgGorilla: kgGorilla,
     presenze: presenze,
     allenamenti: presenze.length,
     serie: serie,

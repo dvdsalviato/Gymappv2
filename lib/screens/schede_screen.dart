@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../widgets/dialogo_azioni.dart';
 import 'crea_scheda_ai_screen.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../db/database_helper.dart';
@@ -119,19 +120,17 @@ class _SchedeScreenState extends State<SchedeScreen> {
     final inPausa = GestoreSessione.inPausa;
     if (inPausa != null) {
       if (!mounted) return;
-      final scelta = await showDialog<String>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Hai già un allenamento in corso'),
-          content: Text(
+      final scelta = await mostraDialogoAzioni<String>(
+        context,
+        titolo: 'Hai già un allenamento in corso',
+        messaggio:
             '"${inPausa.nomeScheda}" è in pausa. Vuoi riprenderlo oppure interromperlo per iniziare "${scheda.nome}"?',
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, 'annulla'), child: const Text('Annulla')),
-            TextButton(onPressed: () => Navigator.pop(ctx, 'nuovo'), child: const Text('Interrompi e inizia')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, 'riprendi'), child: const Text('Riprendi')),
-          ],
-        ),
+        chiudibile: true,
+        azioni: const [
+          AzioneDialogo('Riprendi', Icons.play_arrow, 'riprendi', stile: StileAzione.primaria),
+          AzioneDialogo('Interrompi e inizia', Icons.stop_circle_outlined, 'nuovo', stile: StileAzione.pericolo),
+          AzioneDialogo('Annulla', Icons.arrow_back, 'annulla'),
+        ],
       );
       if (scelta == 'riprendi') {
         await _riprendiAllenamento();
@@ -268,20 +267,15 @@ class _SchedeScreenState extends State<SchedeScreen> {
   }
 
   Future<void> _scartaPausa() async {
-    final conferma = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Interrompere l\'allenamento in pausa?'),
-        content: const Text('Non potrai più riprenderlo. Le serie già registrate restano nello storico.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(minimumSize: const Size(100, 44)),
-            child: const Text('Interrompi'),
-          ),
-        ],
-      ),
+    final conferma = await mostraDialogoAzioni<bool>(
+      context,
+      titolo: 'Interrompere l\'allenamento in pausa?',
+      messaggio: 'Non potrai più riprenderlo. Le serie già registrate restano nello storico.',
+      chiudibile: true,
+      azioni: const [
+        AzioneDialogo('Annulla', Icons.arrow_back, false, stile: StileAzione.primaria),
+        AzioneDialogo('Interrompi', Icons.stop_circle_outlined, true, stile: StileAzione.pericolo),
+      ],
     );
     if (conferma != true) return;
     GestoreSessione.inPausa = null;

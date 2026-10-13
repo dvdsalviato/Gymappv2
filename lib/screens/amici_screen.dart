@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../amici/account_servizio.dart';
 import '../amici/amici_servizio.dart';
@@ -86,6 +87,8 @@ class _AmiciScreenState extends State<AmiciScreen> {
       } catch (_) {}
       final lista = await _servizio.amicizie();
       final accettate = lista.where((a) => a.stato == 'accettata').toList();
+      final prefsConteggio = await SharedPreferences.getInstance();
+      await prefsConteggio.setInt('amici_conteggio', accettate.length);
       final stat = await Future.wait(accettate.map((a) async {
         try {
           return await _servizio.statisticheAmico(a.uidAltro);

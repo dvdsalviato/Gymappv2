@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../db/database_helper.dart';
+import '../state/sessione_allenamento.dart';
+import '../widgets/dialogo_azioni.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_controller.dart';
 import 'assistente_screen.dart';
@@ -12,6 +14,7 @@ import 'peso_screen.dart';
 import 'profilo_screen.dart';
 import 'schede_screen.dart';
 import 'storico_screen.dart';
+import 'workout_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -28,6 +31,46 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _caricaNome();
+    _ripristinaAllenamento();
+  }
+
+  /// Se l'app era stata chiusa durante un allenamento, propone di riprenderlo.
+  Future<void> _ripristinaAllenamento() async {
+    final trovato = await GestoreSessione.caricaDaDisco();
+    if (!trovato || !mounted) return;
+    setState(() {});
+    final sessione = GestoreSessione.inPausa;
+    if (sessione == null) return;
+    final scelta = await mostraDialogoAzioni<String>(
+      context,
+      titolo: 'Allenamento interrotto',
+      messaggio: '"${sessione.nomeScheda}" era rimasto a metà. Vuoi riprenderlo da dove eri?',
+      azioni: const [
+        AzioneDialogo('Riprendi', Icons.play_arrow, 'riprendi', stile: StileAzione.primaria),
+        AzioneDialogo('Decido dopo', Icons.schedule, 'dopo'),
+        AzioneDialogo('Scarta', Icons.delete_outline, 'scarta', stile: StileAzione.pericolo),
+      ],
+    );
+    if (!mounted) return;
+    if (scelta == 'riprendi') {
+      GestoreSessione.inPausa = null;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => WorkoutScreen(
+            esercizi: sessione.coda.map((v) => v.esercizio).toList(),
+            nomeScheda: sessione.nomeScheda,
+            ripresaDa: sessione,
+          ),
+        ),
+      );
+      if (mounted) setState(() {});
+    } else if (scelta == 'scarta') {
+      GestoreSessione.inPausa = null;
+      GestoreSessione.inizioAllenamento = null;
+      await GestoreSessione.cancellaSalvata();
+      setState(() {});
+    }
   }
 
   Future<void> _caricaNome() async {

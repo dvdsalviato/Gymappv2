@@ -36,12 +36,13 @@ class _MedaglieScreenState extends State<MedaglieScreen> {
     final sbloccata = _sbloccate.contains(m.id);
     final valore = valoreMedaglia(m, s);
     final progresso = (valore / m.soglia).clamp(0.0, 1.0);
+    final colTier = coloreTier(m.tier);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: coloreSuperficie(context),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: sbloccata ? AppColors.accento.withOpacity(0.6) : Colors.transparent),
+        border: Border.all(color: sbloccata ? colTier.withOpacity(0.7) : Colors.transparent),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -50,7 +51,7 @@ class _MedaglieScreenState extends State<MedaglieScreen> {
             width: 54,
             height: 54,
             decoration: BoxDecoration(
-              color: sbloccata ? AppColors.accento : coloreChip(context),
+              color: sbloccata ? colTier : coloreChip(context),
               shape: BoxShape.circle,
             ),
             child: Icon(m.icona, color: sbloccata ? Colors.black : Colors.grey.shade600, size: 28),
@@ -71,7 +72,7 @@ class _MedaglieScreenState extends State<MedaglieScreen> {
           ),
           const SizedBox(height: 8),
           if (sbloccata)
-            const Text('SBLOCCATA', style: TextStyle(color: AppColors.accento, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1))
+            Text(m.tier.toUpperCase(), style: TextStyle(color: colTier, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 1.2))
           else ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(6),

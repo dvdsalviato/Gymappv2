@@ -299,6 +299,61 @@ class DatabaseHelper {
     );
   }
 
+  // ---- STATISTICHE PER IL "GIOCO" ----
+
+  /// Massimale stimato (formula di Epley, con al massimo 12 ripetizioni) per
+  /// ogni esercizio a carico.
+  Future<List<Map<String, dynamic>>> getE1rmPerEsercizio() async {
+    final db = await database;
+    return await db.rawQuery(
+      """
+      SELECT esercizi.nome AS nome,
+             MAX(storico.carico * (1.0 + MIN(storico.rep, 12) / 30.0)) AS e1rm
+      FROM storico
+      JOIN esercizi ON esercizi.id = storico.esercizio_id
+      WHERE esercizi.a_tempo = 0 AND storico.carico > 0 AND storico.rep > 0
+      GROUP BY esercizi.nome
+      """,
+    );
+  }
+
+  /// Serie fatte per ogni giorno ("aaaa-mm-gg") a partire da [dal].
+  Future<Map<String, int>> getSeriePerGiorno(String dal) async {
+    final db = await database;
+    final righe = await db.rawQuery(
+      'SELECT substr(data, 1, 10) AS g, COUNT(*) AS n FROM storico WHERE substr(data, 1, 10) >= ? GROUP BY g',
+      [dal],
+    );
+    return {for (final r in righe) r['g'] as String: (r['n'] as num).toInt()};
+  }
+
+  /// Chilogrammi totali sollevati (carico x ripetizioni).
+  Future<double> getVolumeTotale() async {
+    final db = await database;
+    final r = await db.rawQuery('SELECT COALESCE(SUM(carico * rep), 0) AS v FROM storico');
+    return (r.first['v'] as num?)?.toDouble() ?? 0;
+  }
+
+  /// Giorni distinti con almeno una serie registrata tra le ore [da] e [a].
+  Future<int> getGiorniConOra(int da, int a) async {
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT COUNT(DISTINCT substr(data, 1, 10)) AS c FROM storico '
+      'WHERE CAST(substr(data, 12, 2) AS INTEGER) BETWEEN ? AND ?',
+      [da, a],
+    );
+    return Sqflite.firstIntValue(r) ?? 0;
+  }
+
+  /// Serie a tempo registrate.
+  Future<int> getSerieATempo() async {
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM storico JOIN esercizi ON esercizi.id = storico.esercizio_id WHERE esercizi.a_tempo = 1',
+    );
+    return Sqflite.firstIntValue(r) ?? 0;
+  }
+
   // ---- ELIMINAZIONE DELLO STORICO ----
 
   Future<void> _pulisciSessioneGiorno(Database db, String giorno) async {
