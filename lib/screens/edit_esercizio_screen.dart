@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/catalogo_esercizi.dart';
+import '../data/classificatore.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
 import '../theme/app_theme.dart';
@@ -29,6 +30,8 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
   late TextEditingController _riposoCtrl;
   late TextEditingController _noteCtrl;
   late String _categoria;
+  // Vero se la categoria l'ha scelta la persona: allora non la cambio più da solo.
+  late bool _categoriaManuale;
   late bool _aTempo;
   late TextEditingController _minCtrl;
   late TextEditingController _secCtrl;
@@ -43,10 +46,23 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
     _riposoCtrl = TextEditingController(text: e != null ? e.riposoSecondi.toString() : '');
     _noteCtrl = TextEditingController(text: e?.note ?? '');
     _categoria = e?.categoria ?? 'Altro';
+    _categoriaManuale = e != null && e.categoria != 'Altro';
+    if (e != null && !_categoriaManuale) {
+      _categoria = classificaEsercizio(e.nome) ?? 'Altro';
+    }
     _aTempo = e?.aTempo ?? false;
     final durata = (e != null && e.aTempo) ? e.repTarget : 60;
     _minCtrl = TextEditingController(text: (durata ~/ 60).toString());
     _secCtrl = TextEditingController(text: (durata % 60).toString());
+    _nomeCtrl.addListener(_suggerisciCategoria);
+  }
+
+  /// Mentre scrivi il nome, riconosce da solo la categoria (se non l'hai
+  /// già scelta tu).
+  void _suggerisciCategoria() {
+    if (_categoriaManuale) return;
+    final c = classificaEsercizio(_nomeCtrl.text) ?? 'Altro';
+    if (c != _categoria && mounted) setState(() => _categoria = c);
   }
 
   @override
@@ -133,8 +149,9 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
                     onPressed: () async {
                       final scelto = await mostraCatalogoEsercizi(context);
                       if (scelto != null) {
+                        _categoriaManuale = false;
+                        _nomeCtrl.text = scelto.nome;
                         setState(() {
-                          _nomeCtrl.text = scelto.nome;
                           _categoria = scelto.categoria;
                           _aTempo = scelto.durataSecondi > 0;
                           if (_aTempo) {
@@ -149,7 +166,12 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'Obbligatorio' : null,
               ),
               const SizedBox(height: 14),
-              Text('Categoria muscolare', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+              Text(
+                (!_categoriaManuale && _categoria != 'Altro')
+                    ? 'Categoria muscolare (riconosciuta in automatico)'
+                    : 'Categoria muscolare',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
@@ -157,7 +179,10 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
                 children: categorieEsercizio.map((c) {
                   final selezionata = c == _categoria;
                   return GestureDetector(
-                    onTap: () => setState(() => _categoria = c),
+                    onTap: () => setState(() {
+                      _categoria = c;
+                      _categoriaManuale = true;
+                    }),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(

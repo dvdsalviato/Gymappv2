@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../data/catalogo_esercizi.dart';
+import '../data/classificatore.dart';
 
 Future<EsercizioCatalogo?> mostraCatalogoEsercizi(BuildContext context) {
   return showModalBottomSheet<EsercizioCatalogo>(
@@ -22,10 +23,9 @@ class _CatalogoSheetState extends State<_CatalogoSheet> {
   @override
   Widget build(BuildContext context) {
     final categorie = <String, List<EsercizioCatalogo>>{};
-    for (final e in catalogoEsercizi) {
-      if (_filtro.isNotEmpty && !e.nome.toLowerCase().contains(_filtro.toLowerCase())) {
-        continue;
-      }
+    // Ricerca per nome, sinonimi (anche inglesi) e con tolleranza agli errori
+    // di battitura: "hyperxtension" trova comunque "Hyperextension".
+    for (final e in cercaCatalogo(_filtro)) {
       categorie.putIfAbsent(e.categoria, () => []).add(e);
     }
 

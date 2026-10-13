@@ -67,9 +67,50 @@ const List<Medaglia> medaglie = [
   Medaglia('peso30', 'Occhio alla bilancia', '30 pesi registrati', Icons.monitor_weight, 30, 'pesi', 'oro'),
   Medaglia('amico1', 'In compagnia', 'Aggiungi il tuo primo amico', Icons.group, 1, 'amici', 'bronzo'),
   Medaglia('amici5', 'Squadra', '5 amici in palestra', Icons.groups, 5, 'amici', 'argento'),
+  // Allenamenti (altri traguardi)
+  Medaglia('cinque', 'Ci stai prendendo gusto', '5 allenamenti', Icons.thumb_up, 5, 'allenamenti', 'bronzo'),
+  Medaglia('cinquecento', 'Immortale', '500 allenamenti', Icons.stars, 500, 'allenamenti', 'platino'),
+  Medaglia('serie5000', 'Instancabile', '5000 serie fatte', Icons.fitness_center, 5000, 'serie', 'platino'),
+  // Costanza nel lungo periodo
+  Medaglia('sett26', 'Mezzo anno', '26 settimane di fila con obiettivo raggiunto', Icons.calendar_month, 26, 'settimane', 'platino'),
+  Medaglia('sett52', 'Un anno intero', '52 settimane di fila con obiettivo raggiunto', Icons.calendar_month, 52, 'settimane', 'platino'),
+  Medaglia('mese12', 'Mese pieno', '12 allenamenti in un solo mese', Icons.date_range, 12, 'mese', 'argento'),
+  Medaglia('mese20', 'Mese da record', '20 allenamenti in un solo mese', Icons.date_range, 20, 'mese', 'oro'),
+  Medaglia('consec3', 'Tris di giorni', 'Allenati 3 giorni di fila', Icons.looks_3, 3, 'consecutivi', 'bronzo'),
+  Medaglia('weekend', 'Guerriero del weekend', 'Allenati sia sabato sia domenica', Icons.weekend, 1, 'weekend', 'argento'),
+  Medaglia('domenica', 'Domenica di ferro', 'Allenati di domenica', Icons.wb_sunny, 1, 'domeniche', 'bronzo'),
+  Medaglia('mattina10', 'Alba di ferro', '10 allenamenti prima delle 7', Icons.wb_twilight, 10, 'mattina', 'argento'),
+  Medaglia('sera10', 'Gufo notturno', '10 allenamenti dopo le 22', Icons.nightlight_round, 10, 'sera', 'argento'),
+  // Volume e record (altri traguardi)
+  Medaglia('vol1000', 'Cargo', '1000 tonnellate sollevate in totale', Icons.landscape, 1000000, 'volume', 'platino'),
+  Medaglia('rec100', 'Fuori scala', '100 record di carico battuti', Icons.trending_up, 100, 'record', 'platino'),
+  // Una singola sessione
+  Medaglia('serie20g', 'Sessione intensa', '20 serie in un solo giorno', Icons.local_fire_department, 20, 'serieGiorno', 'bronzo'),
+  Medaglia('serie35g', 'Maratona', '35 serie in un solo giorno', Icons.local_fire_department, 35, 'serieGiorno', 'argento'),
+  Medaglia('volg5', 'Sessione pesante', '5 tonnellate sollevate in un solo allenamento', Icons.scale, 5000, 'volumeGiorno', 'argento'),
+  Medaglia('volg10', 'Giornata di ghisa', '10 tonnellate sollevate in un solo allenamento', Icons.scale, 10000, 'volumeGiorno', 'oro'),
+  // Varietà e schede
+  Medaglia('var10', 'Curioso', '10 esercizi diversi provati', Icons.explore, 10, 'varieta', 'bronzo'),
+  Medaglia('var30', 'Esploratore', '30 esercizi diversi provati', Icons.explore, 30, 'varieta', 'argento'),
+  Medaglia('var60', 'Enciclopedia', '60 esercizi diversi provati', Icons.menu_book, 60, 'varieta', 'oro'),
+  Medaglia('schede1', 'Il piano', 'Crea la tua prima scheda', Icons.assignment, 1, 'schede', 'bronzo'),
+  Medaglia('schede5', 'Programmatore', 'Crea 5 schede', Icons.assignment, 5, 'schede', 'argento'),
+  // Giorni per gruppo muscolare
+  Medaglia('gambe10', 'Giorno gambe', '10 allenamenti con le gambe', Icons.directions_run, 10, 'gruppo:gambe', 'bronzo'),
+  Medaglia('gambe30', 'Mai saltare il leg day', '30 allenamenti con le gambe', Icons.directions_run, 30, 'gruppo:gambe', 'argento'),
+  Medaglia('petto25', 'Petto in fuori', '25 allenamenti con il petto', Icons.accessibility_new, 25, 'gruppo:petto', 'argento'),
+  Medaglia('schiena25', 'Schiena larga', '25 allenamenti con la schiena', Icons.accessibility_new, 25, 'gruppo:schiena', 'argento'),
+  Medaglia('spalle25', 'Spalle a boccia', '25 allenamenti con le spalle', Icons.accessibility_new, 25, 'gruppo:spalle', 'argento'),
+  Medaglia('braccia25', 'Braccia d\'acciaio', '25 allenamenti con le braccia', Icons.fitness_center, 25, 'gruppo:braccia', 'argento'),
+  Medaglia('core25', 'Core solido', '25 allenamenti con il core', Icons.accessibility_new, 25, 'gruppo:core', 'argento'),
+  // Resistenza, corpo e amici (altri traguardi)
+  Medaglia('tempo100', 'Maratoneta', '100 serie a tempo', Icons.timer, 100, 'tempo', 'oro'),
+  Medaglia('peso60', 'Diario del peso', '60 pesi registrati', Icons.monitor_weight, 60, 'pesi', 'platino'),
+  Medaglia('amici10', 'Compagnia numerosa', '10 amici in palestra', Icons.groups, 10, 'amici', 'oro'),
 ];
 
 int valoreMedaglia(Medaglia m, StatisticheUtente s) {
+  if (m.tipo.startsWith('gruppo:')) return s.giorniGruppo[m.tipo.substring(7)] ?? 0;
   switch (m.tipo) {
     case 'allenamenti':
       return s.allenamenti;
@@ -93,6 +134,22 @@ int valoreMedaglia(Medaglia m, StatisticheUtente s) {
       return s.muscoliSettimana;
     case 'amici':
       return s.amici;
+    case 'varieta':
+      return s.eserciziDiversi;
+    case 'serieGiorno':
+      return s.maxSerieGiorno;
+    case 'volumeGiorno':
+      return s.maxVolumeGiorno.round();
+    case 'schede':
+      return s.schede;
+    case 'consecutivi':
+      return s.consecutivi;
+    case 'mese':
+      return s.maxMese;
+    case 'weekend':
+      return s.weekend;
+    case 'domeniche':
+      return s.domeniche;
   }
   return 0;
 }

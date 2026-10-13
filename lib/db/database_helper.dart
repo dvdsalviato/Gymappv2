@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import '../models/scheda.dart';
 import '../models/esercizio.dart';
 import '../models/storico.dart';
+import '../data/classificatore.dart';
 
 class DatabaseHelper {
   DatabaseHelper._privateConstructor();
@@ -294,7 +295,60 @@ class DatabaseHelper {
     );
   }
 
+  // ---- CATEGORIE ----
+
+  /// Assegna la categoria agli esercizi rimasti "Altro" quando il nome li
+  /// rende riconoscibili (es. "Hyperxtension" diventa Schiena). Tocca solo
+  /// quelli in "Altro". Restituisce quanti ne ha aggiornati.
+  Future<int> riclassificaAltro() async {
+    final db = await database;
+    final righe = await db.query(
+      'esercizi',
+      columns: ['id', 'nome'],
+      where: 'categoria = ?',
+      whereArgs: ['Altro'],
+    );
+    var aggiornati = 0;
+    final batch = db.batch();
+    for (final r in righe) {
+      final c = classificaEsercizio(r['nome'] as String);
+      if (c != null && c != 'Altro') {
+        batch.update('esercizi', {'categoria': c}, where: 'id = ?', whereArgs: [r['id']]);
+        aggiornati++;
+      }
+    }
+    if (aggiornati > 0) await batch.commit(noResult: true);
+    return aggiornati;
+  }
+
   // ---- STATISTICHE ----
+
+  /// Quanti esercizi diversi (per nome) hai già fatto almeno una volta.
+  Future<int> getEserciziDistinti() async {
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT COUNT(DISTINCT esercizi.nome) AS c FROM storico JOIN esercizi ON esercizi.id = storico.esercizio_id',
+    );
+    return Sqflite.firstIntValue(r) ?? 0;
+  }
+
+  /// Per ogni giorno con allenamento: quante serie e quanti kg sollevati.
+  Future<List<Map<String, dynamic>>> getTotaliGiornalieri() async {
+    final db = await database;
+    return await db.rawQuery(
+      'SELECT substr(data, 1, 10) AS giorno, COUNT(*) AS serie, COALESCE(SUM(carico * rep), 0) AS volume '
+      'FROM storico GROUP BY substr(data, 1, 10)',
+    );
+  }
+
+  /// Giorno, nome e categoria di ogni esercizio fatto (una riga per giorno e esercizio).
+  Future<List<Map<String, dynamic>>> getGiorniEsercizi() async {
+    final db = await database;
+    return await db.rawQuery(
+      'SELECT DISTINCT substr(storico.data, 1, 10) AS giorno, esercizi.nome AS nome, esercizi.categoria AS categoria '
+      'FROM storico JOIN esercizi ON esercizi.id = storico.esercizio_id',
+    );
+  }
 
   /// Chilogrammi totali sollevati (carico x ripetizioni).
   Future<double> getVolumeTotale() async {

@@ -10,7 +10,6 @@ import 'mappa_muscolare_screen.dart';
 import 'account_screen.dart';
 import 'amici_screen.dart';
 import 'home_screen.dart';
-import 'peso_screen.dart';
 import 'profilo_screen.dart';
 import 'schede_screen.dart';
 import 'storico_screen.dart';
@@ -32,6 +31,15 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _caricaNome();
     _ripristinaAllenamento();
+    _riclassificaEsercizi();
+  }
+
+  /// Dà una categoria agli esercizi rimasti "Altro" quando il nome è
+  /// riconoscibile (una volta sola per avvio, in silenzio).
+  Future<void> _riclassificaEsercizi() async {
+    try {
+      await DatabaseHelper.instance.riclassificaAltro();
+    } catch (_) {}
   }
 
   /// Se l'app era stata chiusa durante un allenamento, propone di riprenderlo.
@@ -141,8 +149,6 @@ class _MainScreenState extends State<MainScreen> {
       case 2:
         return const StoricoScreen();
       case 3:
-        return const PesoScreen();
-      case 4:
         return const AmiciScreen();
       default:
         return ProfiloScreen(incorporata: true, onSalvato: _aggiornaNome);
@@ -161,7 +167,6 @@ class _MainScreenState extends State<MainScreen> {
       (Icons.home_outlined, Icons.home, 'Home'),
       (Icons.inventory_2_outlined, Icons.inventory_2, 'Schede'),
       (Icons.bar_chart_outlined, Icons.bar_chart, 'Storico'),
-      (Icons.monitor_weight_outlined, Icons.monitor_weight, 'Peso'),
       (Icons.group_outlined, Icons.group, 'Amici'),
       (Icons.person_outline, Icons.person, 'Profilo'),
     ];
@@ -245,7 +250,7 @@ class _MainScreenState extends State<MainScreen> {
                   title: const Text('Il mio profilo'),
                   onTap: () {
                     Navigator.pop(context);
-                    setState(() => _indice = 5);
+                    setState(() => _indice = 4);
                   },
                 ),
                 ListTile(

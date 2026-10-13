@@ -1,4 +1,5 @@
 import 'catalogo_esercizi.dart';
+import 'classificatore.dart';
 
 class Muscolo {
   final String id;
@@ -25,11 +26,11 @@ const List<Muscolo> muscoli = [
 /// Da categoria e nome dell'esercizio ricava il muscolo principale.
 /// Restituisce null per gli esercizi che non si riescono a collocare.
 String? muscoloDi(String nome, String categoria) {
-  final n = nome.toLowerCase();
   var cat = categoria;
   if (!_categorieMuscolari.contains(cat) && cat != 'Cardio') {
-    // Esercizio senza categoria ("Altro"): la ricavo dal catalogo o dal nome.
-    cat = _categoriaDaNome(nome) ?? categoria;
+    // Esercizio senza categoria ("Altro"): la ricavo dal catalogo o dal nome,
+    // anche se scritto con qualche errore.
+    cat = classificaEsercizio(nome) ?? categoria;
   }
   switch (cat) {
     case 'Petto':
@@ -43,17 +44,26 @@ String? muscoloDi(String nome, String categoria) {
     case 'Core':
       return 'addominali';
     case 'Schiena':
-      if (n.contains('shrug')) return 'trapezio';
-      if (n.contains('stacco') || n.contains('hyperextension') || n.contains('good morning')) {
+      if (nomeContiene(nome, ['shrug', 'shrugs', 'trapezi', 'trapezio', 'farmer'])) return 'trapezio';
+      if (nomeContiene(nome, [
+        'stacco', 'stacchi', 'deadlift', 'dead lift', 'rack pull', 'hyperextension', 'iperestensioni',
+        'iperestensione', 'back extension', 'lombari', 'good morning', 'superman',
+      ])) {
         return 'lombari';
       }
       return 'dorsali';
     case 'Gambe':
-      if (n.contains('calf')) return 'polpacci';
-      if (n.contains('leg curl') || n.contains('nordic') || n.contains('stacco rumeno')) {
+      if (nomeContiene(nome, ['calf', 'polpacci', 'polpaccio', 'punte', 'tibialis'])) return 'polpacci';
+      if (nomeContiene(nome, [
+        'leg curl', 'nordic', 'stacco rumeno', 'romanian', 'rdl', 'glute ham', 'femorali', 'stacco gambe tese',
+        'stacco gambe',
+      ])) {
         return 'femorali';
       }
-      if (n.contains('hip thrust') || n.contains('ponte glutei') || n.contains('abductor')) {
+      if (nomeContiene(nome, [
+        'hip thrust', 'ponte', 'glute', 'glutei', 'gluteo', 'abductor', 'abduzioni', 'kickback', 'donkey kick',
+        'fire hydrant', 'frog pump', 'pull through', 'kettlebell swing',
+      ])) {
         return 'glutei';
       }
       return 'quadricipiti';
@@ -62,36 +72,6 @@ String? muscoloDi(String nome, String categoria) {
 }
 
 const Set<String> _categorieMuscolari = {'Petto', 'Spalle', 'Bicipiti', 'Tricipiti', 'Core', 'Schiena', 'Gambe'};
-
-String? _categoriaDaNome(String nome) {
-  final n = nome.toLowerCase().trim();
-  for (final e in catalogoEsercizi) {
-    if (e.nome.toLowerCase() == n) return e.categoria;
-  }
-  bool ha(List<String> parole) => parole.any(n.contains);
-  if (ha(['squat', 'leg press', 'leg extension', 'leg curl', 'affond', 'lunge', 'calf', 'polpacc', 'hip thrust',
-      'glute', 'step up', 'pressa', 'abductor', 'adductor', 'nordic', 'stacco rumeno', 'romanian', 'gamb'])) {
-    return 'Gambe';
-  }
-  if (ha(['lat ', 'lat machine', 'pulldown', 'pull down', 'trazion', 'pull-up', 'pull up', 'chin', 'rematore',
-      'row', 'pulley', 'shrug', 'stacco', 'deadlift', 'hyperextension', 'back extension', 'good morning',
-      'dorsal', 'schiena'])) {
-    return 'Schiena';
-  }
-  if (ha(['panca', 'bench', 'chest', 'croci', 'fly', 'piegament', 'push-up', 'push up', 'pettor', 'pec deck', 'dips'])) {
-    return 'Petto';
-  }
-  if (ha(['spalle', 'shoulder', 'military', 'arnold', 'alzate', 'lateral raise', 'face pull', 'overhead press',
-      'lento avanti', 'deltoid'])) {
-    return 'Spalle';
-  }
-  if (ha(['curl', 'bicip', 'hammer', 'preacher', 'scott'])) return 'Bicipiti';
-  if (ha(['tricip', 'french', 'pushdown', 'push down', 'skull', 'kickback', 'estensioni', 'extension'])) return 'Tricipiti';
-  if (ha(['plank', 'crunch', 'addom', 'core', 'sit-up', 'sit up', 'russian twist', 'leg raise', 'ab wheel', 'hollow'])) {
-    return 'Core';
-  }
-  return null;
-}
 
 /// Esercizi del catalogo per questo muscolo che non hai fatto di recente,
 /// presi a distanza uno dall'altro nella lista per avere varietà.

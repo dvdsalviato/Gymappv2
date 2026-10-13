@@ -147,17 +147,52 @@ class _MedaglieScreenState extends State<MedaglieScreen> {
                   ],
                 ),
                 const SizedBox(height: 18),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  childAspectRatio: 0.82,
-                  children: [for (final m in medaglie) _tessera(m, s)],
-                ),
+                if (_daSbloccare(s).isNotEmpty) ...[
+                  _titoloSezione('DA SBLOCCARE (le più vicine per prime)'),
+                  _griglia(_daSbloccare(s), s),
+                  const SizedBox(height: 18),
+                ],
+                if (_giaSbloccate().isNotEmpty) ...[
+                  _titoloSezione('SBLOCCATE'),
+                  _griglia(_giaSbloccate(), s),
+                ],
               ],
             ),
+    );
+  }
+
+  /// Medaglie ancora da prendere, dalla più vicina alla più lontana.
+  List<Medaglia> _daSbloccare(StatisticheUtente s) {
+    double progresso(Medaglia m) => (valoreMedaglia(m, s) / m.soglia).clamp(0.0, 1.0);
+    final lista = medaglie.where((m) => !_sbloccate.contains(m.id)).toList();
+    lista.sort((a, b) => progresso(b).compareTo(progresso(a)));
+    return lista;
+  }
+
+  List<Medaglia> _giaSbloccate() => medaglie.where((m) => _sbloccate.contains(m.id)).toList();
+
+  Widget _titoloSezione(String testo) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Text(
+          testo,
+          style: TextStyle(
+            color: Colors.grey.shade500,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+            letterSpacing: 1.4,
+          ),
+        ),
+      );
+
+  Widget _griglia(List<Medaglia> lista, StatisticheUtente s) {
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 0.82,
+      children: [for (final m in lista) _tessera(m, s)],
     );
   }
 

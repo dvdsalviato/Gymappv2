@@ -3,6 +3,7 @@ import 'account_screen.dart';
 import '../db/database_helper.dart';
 import '../theme/app_theme.dart';
 import '../widgets/campo_numero.dart';
+import 'peso_screen.dart';
 
 class ProfiloScreen extends StatefulWidget {
   /// Se true la schermata non ha una propria barra in alto (è una scheda
@@ -21,7 +22,8 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
   late TextEditingController _nomeCtrl;
 
   double _altezzaIniziale = 175;
-  double _pesoIniziale = 75;
+  double? _pesoAttuale;
+  int _sezione = 0; // 0 = dati personali, 1 = peso
   double _massaGrassaIniziale = 0;
   double _etaIniziale = 30;
 
@@ -29,7 +31,6 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
   String? _obiettivo;
 
   final _altezzaKey = GlobalKey<CampoNumeroState>();
-  final _pesoKey = GlobalKey<CampoNumeroState>();
   final _massaGrassaKey = GlobalKey<CampoNumeroState>();
   final _etaKey = GlobalKey<CampoNumeroState>();
 
@@ -54,7 +55,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     if (profilo != null) {
       _nomeCtrl.text = (profilo['nome'] as String?) ?? '';
       _altezzaIniziale = (profilo['altezza_cm'] as num?)?.toDouble() ?? _altezzaIniziale;
-      _pesoIniziale = (profilo['peso_kg'] as num?)?.toDouble() ?? _pesoIniziale;
+      _pesoAttuale = (profilo['peso_kg'] as num?)?.toDouble();
       _massaGrassaIniziale = (profilo['massa_grassa_percento'] as num?)?.toDouble() ?? 0;
       _etaIniziale = (profilo['eta'] as num?)?.toDouble() ?? _etaIniziale;
       _sesso = profilo['sesso'] as String?;
@@ -63,11 +64,22 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     setState(() => _loading = false);
   }
 
+  /// Rilegge solo il peso (dopo una registrazione o un'eliminazione nella
+  /// sezione Peso), senza toccare ciò che stai modificando nei dati.
+  Future<void> _ricaricaPeso() async {
+    final profilo = await DatabaseHelper.instance.getProfilo();
+    if (!mounted) return;
+    setState(() => _pesoAttuale = (profilo?['peso_kg'] as num?)?.toDouble());
+  }
+
   Future<void> _salva() async {
+    // Si parte dal profilo salvato così il peso (che si gestisce nella
+    // sezione Peso) non viene mai sovrascritto da qui.
+    final attuale = await DatabaseHelper.instance.getProfilo() ?? {};
     await DatabaseHelper.instance.salvaProfilo({
+      ...attuale,
       'nome': _nomeCtrl.text.trim(),
       'altezza_cm': (_altezzaKey.currentState?.valore ?? _altezzaIniziale).round(),
-      'peso_kg': _pesoKey.currentState?.valore ?? _pesoIniziale,
       'massa_grassa_percento': _massaGrassaKey.currentState?.valore ?? _massaGrassaIniziale,
       'eta': (_etaKey.currentState?.valore ?? _etaIniziale).round(),
       'sesso': _sesso,
@@ -114,92 +126,165 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     );
   }
 
+  /// Il peso si registra e si guarda nella sezione "Peso": qui è solo un riepilogo.
+  Widget _cardPesoAttuale() {
+    final peso = _pesoAttuale;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(18, 14, 8, 14),
+      decoration: BoxDecoration(
+        color: coloreSuperficie(context),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'PESO ATTUALE',
+                  style: TextStyle(
+                    color: Colors.grey.shade500,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    letterSpacing: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  peso == null ? '--' : '${peso.toStringAsFixed(1).replaceAll('.', ',')} kg',
+                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800),
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => setState(() => _sezione = 1),
+            child: const Text('Registra'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sezioneDati() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _nomeCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Nome',
+            hintText: 'es. Davide',
+          ),
+        ),
+        const SizedBox(height: 24),
+        _cardPesoAttuale(),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            CampoNumero(
+              key: _altezzaKey,
+              etichetta: 'Altezza (cm)',
+              valoreIniziale: _altezzaIniziale,
+              step: 1,
+            ),
+            CampoNumero(
+              key: _etaKey,
+              etichetta: 'Età',
+              valoreIniziale: _etaIniziale,
+              step: 1,
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Center(
+          child: CampoNumero(
+            key: _massaGrassaKey,
+            etichetta: 'Massa grassa %',
+            valoreIniziale: _massaGrassaIniziale,
+            step: 0.5,
+            decimali: true,
+          ),
+        ),
+        const SizedBox(height: 28),
+        _selettoreTesto('Sesso', _opzioniSesso, _sesso, (v) => setState(() => _sesso = v)),
+        _selettoreTesto(
+          'Obiettivo',
+          _opzioniObiettivo,
+          _obiettivo,
+          (v) => setState(() => _obiettivo = v),
+        ),
+        FilledButton.icon(
+          onPressed: _salva,
+          icon: const Icon(Icons.check),
+          label: const Text('Salva profilo'),
+        ),
+        const SizedBox(height: 24),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final corpo = _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const AccountScreen()),
-                      ),
-                      icon: const Icon(Icons.cloud_sync_outlined),
-                      label: const Text('Account Google e backup'),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(52),
-                        shape: const StadiumBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    TextField(
-                      controller: _nomeCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome',
-                        hintText: 'es. Davide',
+        ? const Center(child: CircularProgressIndicator())
+        : SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<int>(
+                      segments: const [
+                        ButtonSegment(value: 0, label: Text('Dati'), icon: Icon(Icons.person_outline)),
+                        ButtonSegment(value: 1, label: Text('Peso'), icon: Icon(Icons.monitor_weight_outlined)),
+                      ],
+                      selected: {_sezione},
+                      onSelectionChanged: (s) => setState(() => _sezione = s.first),
+                      style: SegmentedButton.styleFrom(
+                        selectedBackgroundColor: AppColors.accento,
+                        selectedForegroundColor: Colors.black,
                       ),
                     ),
-                    const SizedBox(height: 28),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  ),
+                  const SizedBox(height: 18),
+                  // Le due sezioni restano entrambe vive: cambiando scheda non
+                  // perdi quello che stavi modificando.
+                  Offstage(
+                    offstage: _sezione != 0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CampoNumero(
-                          key: _altezzaKey,
-                          etichetta: 'Altezza (cm)',
-                          valoreIniziale: _altezzaIniziale,
-                          step: 1,
+                        OutlinedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AccountScreen()),
+                          ),
+                          icon: const Icon(Icons.cloud_sync_outlined),
+                          label: const Text('Account Google e backup'),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(52),
+                            shape: const StadiumBorder(),
+                          ),
                         ),
-                        CampoNumero(
-                          key: _pesoKey,
-                          etichetta: 'Peso (kg)',
-                          valoreIniziale: _pesoIniziale,
-                          step: 0.5,
-                          decimali: true,
-                        ),
+                        const SizedBox(height: 22),
+                        _sezioneDati(),
                       ],
                     ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        CampoNumero(
-                          key: _etaKey,
-                          etichetta: 'Età',
-                          valoreIniziale: _etaIniziale,
-                          step: 1,
-                        ),
-                        CampoNumero(
-                          key: _massaGrassaKey,
-                          etichetta: 'Massa grassa %',
-                          valoreIniziale: _massaGrassaIniziale,
-                          step: 0.5,
-                          decimali: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 28),
-                    _selettoreTesto('Sesso', _opzioniSesso, _sesso, (v) => setState(() => _sesso = v)),
-                    _selettoreTesto(
-                      'Obiettivo',
-                      _opzioniObiettivo,
-                      _obiettivo,
-                      (v) => setState(() => _obiettivo = v),
-                    ),
-                    FilledButton.icon(
-                      onPressed: _salva,
-                      icon: const Icon(Icons.check),
-                      label: const Text('Salva profilo'),
-                    ),
-                    const SizedBox(height: 24),
-                  ],
-                ),
+                  ),
+                  Offstage(
+                    offstage: _sezione != 1,
+                    child: PesoScreen(incorporato: true, onCambiato: _ricaricaPeso),
+                  ),
+                ],
               ),
-            );
+            ),
+          );
     if (widget.incorporata) return corpo;
     return Scaffold(
       appBar: AppBar(title: const Text('Il mio profilo')),

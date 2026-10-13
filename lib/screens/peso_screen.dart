@@ -7,7 +7,14 @@ import '../theme/app_theme.dart';
 /// Monitoraggio del peso corporeo: valore attuale, grafico dell'andamento
 /// e storico delle registrazioni. Si usa dentro la schermata principale.
 class PesoScreen extends StatefulWidget {
-  const PesoScreen({super.key});
+  /// Se true non ha una propria area scorrevole né il titolo: si inserisce
+  /// dentro un'altra pagina (il Profilo).
+  final bool incorporato;
+
+  /// Chiamata quando una registrazione viene aggiunta o eliminata.
+  final VoidCallback? onCambiato;
+
+  const PesoScreen({super.key, this.incorporato = false, this.onCambiato});
 
   @override
   State<PesoScreen> createState() => _PesoScreenState();
@@ -88,6 +95,7 @@ class _PesoScreenState extends State<PesoScreen> {
     final p = await DatabaseHelper.instance.getProfilo() ?? {};
     await DatabaseHelper.instance.salvaProfilo({...p, 'peso_kg': valore});
     await _carica();
+    widget.onCambiato?.call();
   }
 
   Future<void> _elimina(Map<String, dynamic> m) async {
@@ -110,7 +118,14 @@ class _PesoScreenState extends State<PesoScreen> {
     );
     if (conferma != true) return;
     await DatabaseHelper.instance.deletePeso(id);
+    // Il peso del profilo segue sempre l'ultima registrazione rimasta.
+    final rimasti = await DatabaseHelper.instance.getPesi();
+    if (rimasti.isNotEmpty) {
+      final p = await DatabaseHelper.instance.getProfilo() ?? {};
+      await DatabaseHelper.instance.salvaProfilo({...p, 'peso_kg': _kg(rimasti.last)});
+    }
     await _carica();
+    widget.onCambiato?.call();
   }
 
   Widget _cardPesoAttuale(List<Map<String, dynamic>> dati) {
@@ -296,13 +311,13 @@ class _PesoScreenState extends State<PesoScreen> {
     final dati = _filtrati;
     final ordine = _pesi.reversed.take(15).toList();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-      child: Column(
+    final contenuto = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('PESO', style: GoogleFonts.oswald(fontSize: 34, fontWeight: FontWeight.w700, letterSpacing: 1)),
-          const SizedBox(height: 14),
+          if (!widget.incorporato) ...[
+            Text('PESO', style: GoogleFonts.oswald(fontSize: 34, fontWeight: FontWeight.w700, letterSpacing: 1)),
+            const SizedBox(height: 14),
+          ],
           _cardPesoAttuale(dati),
           const SizedBox(height: 18),
           SizedBox(
@@ -352,7 +367,11 @@ class _PesoScreenState extends State<PesoScreen> {
             for (var i = 0; i < ordine.length; i++) _riga(i, ordine),
           ],
         ],
-      ),
+      );
+    if (widget.incorporato) return contenuto;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+      child: contenuto,
     );
   }
 }

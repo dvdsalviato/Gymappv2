@@ -11,6 +11,7 @@ import '../services/condivisione_scheda.dart';
 import '../services/gemini_service.dart';
 import '../theme/app_theme.dart';
 import 'assistente_screen.dart';
+import '../data/classificatore.dart';
 
 const _focusDisponibili = ['Full body', 'Push', 'Pull', 'Gambe', 'Upper', 'Lower', 'Petto e tricipiti', 'Schiena e bicipiti'];
 const _obiettiviDisponibili = ['Massa muscolare', 'Forza', 'Dimagrimento', 'Mantenimento'];
@@ -171,7 +172,7 @@ class _CreaSchedaAiScreenState extends State<CreaSchedaAiScreen> {
           repTarget: aTempo ? durata : _intLimitato(v['rep'], 1, 30, 10),
           aTempo: aTempo,
           riposoSecondi: _intLimitato(v['riposo'], 0, 300, 90),
-          categoria: cat?.categoria ?? 'Altro',
+          categoria: cat?.categoria ?? classificaEsercizio(nomeGrezzo) ?? 'Altro',
           note: (nota == null || nota.isEmpty) ? null : nota,
         ));
       }

@@ -1,3 +1,4 @@
+import '../data/classificatore.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
 import '../models/scheda.dart';
@@ -18,7 +19,7 @@ Future<void> salvaSchedaImportata(SchedaImportata importata) async {
         serieTotali: e.serieTotali,
         repTarget: e.repTarget,
         riposoSecondi: e.riposoSecondi,
-        categoria: e.categoria,
+        categoria: e.categoria == 'Altro' ? (classificaEsercizio(e.nome) ?? 'Altro') : e.categoria,
         note: e.note,
         aTempo: e.aTempo,
       ),
