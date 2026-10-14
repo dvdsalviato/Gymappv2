@@ -332,15 +332,6 @@ class DatabaseHelper {
     return Sqflite.firstIntValue(r) ?? 0;
   }
 
-  /// Per ogni giorno con allenamento: quante serie e quanti kg sollevati.
-  Future<List<Map<String, dynamic>>> getTotaliGiornalieri() async {
-    final db = await database;
-    return await db.rawQuery(
-      'SELECT substr(data, 1, 10) AS giorno, COUNT(*) AS serie, COALESCE(SUM(carico * rep), 0) AS volume '
-      'FROM storico GROUP BY substr(data, 1, 10)',
-    );
-  }
-
   /// Giorno, nome e categoria di ogni esercizio fatto (una riga per giorno e esercizio).
   Future<List<Map<String, dynamic>>> getGiorniEsercizi() async {
     final db = await database;

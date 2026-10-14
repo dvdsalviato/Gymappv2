@@ -24,14 +24,12 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
   double _altezzaIniziale = 175;
   double? _pesoAttuale;
   int _sezione = 0; // 0 = dati personali, 1 = peso
-  double _massaGrassaIniziale = 0;
   double _etaIniziale = 30;
 
   String? _sesso;
   String? _obiettivo;
 
   final _altezzaKey = GlobalKey<CampoNumeroState>();
-  final _massaGrassaKey = GlobalKey<CampoNumeroState>();
   final _etaKey = GlobalKey<CampoNumeroState>();
 
   static const _opzioniSesso = ['Uomo', 'Donna', 'Altro'];
@@ -56,7 +54,6 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
       _nomeCtrl.text = (profilo['nome'] as String?) ?? '';
       _altezzaIniziale = (profilo['altezza_cm'] as num?)?.toDouble() ?? _altezzaIniziale;
       _pesoAttuale = (profilo['peso_kg'] as num?)?.toDouble();
-      _massaGrassaIniziale = (profilo['massa_grassa_percento'] as num?)?.toDouble() ?? 0;
       _etaIniziale = (profilo['eta'] as num?)?.toDouble() ?? _etaIniziale;
       _sesso = profilo['sesso'] as String?;
       _obiettivo = profilo['obiettivo'] as String?;
@@ -80,7 +77,6 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
       ...attuale,
       'nome': _nomeCtrl.text.trim(),
       'altezza_cm': (_altezzaKey.currentState?.valore ?? _altezzaIniziale).round(),
-      'massa_grassa_percento': _massaGrassaKey.currentState?.valore ?? _massaGrassaIniziale,
       'eta': (_etaKey.currentState?.valore ?? _etaIniziale).round(),
       'sesso': _sesso,
       'obiettivo': _obiettivo,
@@ -198,16 +194,6 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
               step: 1,
             ),
           ],
-        ),
-        const SizedBox(height: 24),
-        Center(
-          child: CampoNumero(
-            key: _massaGrassaKey,
-            etichetta: 'Massa grassa %',
-            valoreIniziale: _massaGrassaIniziale,
-            step: 0.5,
-            decimali: true,
-          ),
         ),
         const SizedBox(height: 28),
         _selettoreTesto('Sesso', _opzioniSesso, _sesso, (v) => setState(() => _sesso = v)),

@@ -965,10 +965,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     if (esercizio.aTempo) return null;
     final target = esercizio.repTarget;
     if (numeroSerie > 1 && _caricoInserito > 0 && identical(esercizio, _coda.first.esercizio)) {
-      return suggerisciCarico(_caricoInserito, _repInseriti, target);
+      // Nello stesso allenamento il carico non sale: si mantiene o si scende.
+      return suggerisciCarico(_caricoInserito, _repInseriti, target, nome: esercizio.nome, consentiAumento: false);
     }
+    // Si sale solo se l'ultima volta hai raggiunto il target in tutte le serie.
+    final tutteComplete = _ultimaVolta.isNotEmpty && _ultimaVolta.every((s) => s.rep >= target);
     for (final s in _ultimaVolta) {
-      if (s.serieNumero == numeroSerie) return suggerisciCarico(s.carico, s.rep, target);
+      if (s.serieNumero == numeroSerie) {
+        return suggerisciCarico(s.carico, s.rep, target, nome: esercizio.nome, consentiAumento: tutteComplete);
+      }
     }
     return null;
   }

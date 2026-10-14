@@ -33,25 +33,6 @@ int settimaneConsecutive(Set<DateTime> presenze, int obiettivo, DateTime oggi) {
   return serie;
 }
 
-/// Giorni consecutivi più lunghi con almeno un allenamento.
-int giorniConsecutiviMax(Set<DateTime> presenze) {
-  if (presenze.isEmpty) return 0;
-  final ordinati = presenze.toList()..sort();
-  var massimo = 1;
-  var corrente = 1;
-  for (var i = 1; i < ordinati.length; i++) {
-    final prec = ordinati[i - 1];
-    final atteso = DateTime(prec.year, prec.month, prec.day + 1);
-    if (ordinati[i] == atteso) {
-      corrente++;
-      if (corrente > massimo) massimo = corrente;
-    } else {
-      corrente = 1;
-    }
-  }
-  return massimo;
-}
-
 /// Il massimo numero di allenamenti fatti in un singolo mese di calendario.
 int maxAllenamentiInUnMese(Set<DateTime> presenze) {
   final mesi = <String, int>{};
@@ -74,8 +55,6 @@ int weekendCompleti(Set<DateTime> presenze) {
   }
   return n;
 }
-
-int domenicheAllenate(Set<DateTime> presenze) => presenze.where((d) => d.weekday == DateTime.sunday).length;
 
 /// Gruppi muscolari per le medaglie "giorni di ...".
 const Map<String, Set<String>> gruppiMuscolari = {
@@ -103,26 +82,18 @@ class StatisticheUtente {
   final int muscoliSettimana;
   final int amici;
   final int eserciziDiversi;
-  final int maxSerieGiorno;
-  final double maxVolumeGiorno;
   final int schede;
-  final int consecutivi;
   final int maxMese;
   final int weekend;
-  final int domeniche;
 
   /// Giorni di allenamento in cui hai lavorato ogni gruppo muscolare.
   final Map<String, int> giorniGruppo;
 
   const StatisticheUtente({
     this.eserciziDiversi = 0,
-    this.maxSerieGiorno = 0,
-    this.maxVolumeGiorno = 0,
     this.schede = 0,
-    this.consecutivi = 0,
     this.maxMese = 0,
     this.weekend = 0,
-    this.domeniche = 0,
     this.giorniGruppo = const {},
     this.volumeKg = 0,
     this.record = 0,
@@ -178,15 +149,6 @@ Future<StatisticheUtente> caricaStatistiche() async {
   }
 
   final eserciziDiversi = await db.getEserciziDistinti();
-  final totaliGiorno = await db.getTotaliGiornalieri();
-  var maxSerieGiorno = 0;
-  var maxVolumeGiorno = 0.0;
-  for (final r in totaliGiorno) {
-    final nSerie = (r['serie'] as num?)?.toInt() ?? 0;
-    final vol = (r['volume'] as num?)?.toDouble() ?? 0;
-    if (nSerie > maxSerieGiorno) maxSerieGiorno = nSerie;
-    if (vol > maxVolumeGiorno) maxVolumeGiorno = vol;
-  }
   final schede = (await db.getSchede()).length;
   final giorniPerGruppo = <String, Set<String>>{};
   for (final r in await db.getGiorniEsercizi()) {
@@ -201,13 +163,9 @@ Future<StatisticheUtente> caricaStatistiche() async {
 
   return StatisticheUtente(
     eserciziDiversi: eserciziDiversi,
-    maxSerieGiorno: maxSerieGiorno,
-    maxVolumeGiorno: maxVolumeGiorno,
     schede: schede,
-    consecutivi: giorniConsecutiviMax(presenze),
     maxMese: maxAllenamentiInUnMese(presenze),
     weekend: weekendCompleti(presenze),
-    domeniche: domenicheAllenate(presenze),
     giorniGruppo: {for (final e in giorniPerGruppo.entries) e.key: e.value.length},
     volumeKg: volume,
     record: prefs.getInt('record_totali') ?? 0,

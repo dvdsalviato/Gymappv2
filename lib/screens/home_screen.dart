@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../data/contenuti.dart';
 import '../data/medaglie.dart';
@@ -16,13 +14,6 @@ import 'calendario_screen.dart';
 import 'mappa_muscolare_screen.dart';
 import 'medaglie_screen.dart';
 import 'workout_screen.dart';
-
-class _Notizia {
-  final String titolo;
-  final String fonte;
-  final String link;
-  const _Notizia(this.titolo, this.fonte, this.link);
-}
 
 class _AppEsterna {
   final String nome;
@@ -38,24 +29,8 @@ const _appEsterne = [
   _AppEsterna('MyFitnessPal', Icons.restaurant_menu, 'https://www.myfitnesspal.com'),
 ];
 
-class _Categoria {
-  final String nome;
-  final String ricerca;
-  const _Categoria(this.nome, this.ricerca);
-}
-
-const _categorie = [
-  _Categoria('Ricette fit', 'ricette fit proteiche'),
-  _Categoria('Consigli', 'consigli allenamento palestra'),
-  _Categoria('Esercizi', 'esercizi allenamento tecnica'),
-  _Categoria('Notizie', 'fitness allenamento palestra'),
-];
-
-String _urlPer(String ricerca) =>
-    'https://news.google.com/rss/search?q=${Uri.encodeQueryComponent(ricerca)}&hl=it&gl=IT&ceid=IT:it';
-
 /// Home: panoramica della settimana, timer dell'allenamento, scorciatoie,
-/// notizie e collegamenti ad altre app.
+/// consigli e collegamenti ad altre app.
 class HomeScreen extends StatefulWidget {
   final String? nome;
   final VoidCallback onVaiAlleSchede;
@@ -74,12 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double? _deltaPeso;
   StatisticheUtente? _stat;
   int _medaglieSbloccate = 0;
-  List<_Notizia> _notizie = [];
-  int _categoria = 0;
-  final Map<int, List<_Notizia>> _cache = {};
   bool _ricettaAperta = false;
-  bool _notizieCaricamento = true;
-  bool _notizieErrore = false;
 
   @override
   void initState() {
@@ -88,7 +58,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted && GestoreSessione.inizioAllenamento != null) setState(() {});
     });
     _carica();
-    _caricaNotizie();
   }
 
   @override
@@ -159,77 +128,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (scelto == null) return;
     await salvaObiettivoSettimanale(scelto);
     await _carica();
-  }
-
-  String _decodifica(String s) {
-    var t = s.trim();
-    if (t.startsWith('<![CDATA[') && t.endsWith(']]>')) {
-      t = t.substring(9, t.length - 3);
-    }
-    return t
-        .replaceAll('&amp;', '&')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&#39;', "'")
-        .replaceAll('&apos;', "'")
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>')
-        .trim();
-  }
-
-  String _estrai(String blocco, String tag) {
-    final m = RegExp('<$tag[^>]*>(.*?)</$tag>', dotAll: true).firstMatch(blocco);
-    return m == null ? '' : _decodifica(m.group(1) ?? '');
-  }
-
-  Future<void> _caricaNotizie({bool forza = false}) async {
-    final categoria = _categoria;
-    final inCache = _cache[categoria];
-    if (!forza && inCache != null) {
-      setState(() {
-        _notizie = inCache;
-        _notizieCaricamento = false;
-        _notizieErrore = false;
-      });
-      return;
-    }
-    setState(() {
-      _notizieCaricamento = true;
-      _notizieErrore = false;
-    });
-    try {
-      final r = await http
-          .get(Uri.parse(_urlPer(_categorie[categoria].ricerca)))
-          .timeout(const Duration(seconds: 10));
-      if (r.statusCode != 200) throw Exception('errore ${r.statusCode}');
-      final xml = utf8.decode(r.bodyBytes, allowMalformed: true);
-      final lista = <_Notizia>[];
-      for (final m in RegExp('<item>(.*?)</item>', dotAll: true).allMatches(xml)) {
-        final blocco = m.group(1) ?? '';
-        var titolo = _estrai(blocco, 'title');
-        final link = _estrai(blocco, 'link');
-        final fonte = _estrai(blocco, 'source');
-        if (fonte.isNotEmpty && titolo.endsWith(' - $fonte')) {
-          titolo = titolo.substring(0, titolo.length - fonte.length - 3);
-        }
-        if (titolo.isEmpty || link.isEmpty) continue;
-        lista.add(_Notizia(titolo, fonte, link));
-        if (lista.length >= 5) break;
-      }
-      if (!mounted) return;
-      if (lista.isNotEmpty) _cache[categoria] = lista;
-      if (categoria != _categoria) return; // nel frattempo hai cambiato scheda
-      setState(() {
-        _notizie = lista;
-        _notizieCaricamento = false;
-        _notizieErrore = lista.isEmpty;
-      });
-    } catch (_) {
-      if (!mounted || categoria != _categoria) return;
-      setState(() {
-        _notizieCaricamento = false;
-        _notizieErrore = true;
-      });
-    }
   }
 
   Future<void> _apri(String url) async {
@@ -737,104 +635,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _sceltaCategoria() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (var i = 0; i < _categorie.length; i++)
-          ChoiceChip(
-            label: Text(_categorie[i].nome),
-            selected: i == _categoria,
-            selectedColor: AppColors.accento,
-            labelStyle: TextStyle(
-              color: i == _categoria ? Colors.black : null,
-              fontWeight: FontWeight.w700,
-            ),
-            onSelected: (_) {
-              if (i == _categoria) return;
-              setState(() => _categoria = i);
-              _caricaNotizie();
-            },
-          ),
-      ],
-    );
-  }
-
-  Widget _notizieCard() {
-    Widget contenuto;
-    if (_notizieCaricamento) {
-      contenuto = const Padding(
-        padding: EdgeInsets.all(20),
-        child: Center(child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))),
-      );
-    } else if (_notizieErrore) {
-      contenuto = Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Impossibile caricare le notizie (serve internet).',
-                style: TextStyle(color: Colors.grey.shade500),
-              ),
-            ),
-            TextButton(onPressed: () => _caricaNotizie(forza: true), child: const Text('Riprova')),
-          ],
-        ),
-      );
-    } else {
-      contenuto = Column(
-        children: [
-          for (var i = 0; i < _notizie.length; i++) ...[
-            InkWell(
-              onTap: () => _apri(_notizie[i].link),
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _notizie[i].titolo,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.w600, height: 1.25),
-                          ),
-                          if (_notizie[i].fonte.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              _notizie[i].fonte,
-                              style: const TextStyle(color: AppColors.accento, fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(Icons.open_in_new, size: 18, color: Colors.grey.shade600),
-                  ],
-                ),
-              ),
-            ),
-            if (i < _notizie.length - 1) Divider(height: 1, color: Colors.white.withOpacity(0.07)),
-          ],
-        ],
-      );
-    }
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: contenuto,
-    );
-  }
-
   Widget _appCollegate() {
     return Wrap(
       spacing: 10,
@@ -866,11 +666,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-      onRefresh: () async {
-        await _carica();
-        _cache.clear();
-        await _caricaNotizie(forza: true);
-      },
+      onRefresh: _carica,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
         children: [
@@ -894,11 +690,6 @@ class _HomeScreenState extends State<HomeScreen> {
           _consiglioDelGiorno(),
           const SizedBox(height: 10),
           _ricettaDelGiorno(),
-          const SizedBox(height: 14),
-          _etichetta('SCOPRI'),
-          _sceltaCategoria(),
-          const SizedBox(height: 10),
-          _notizieCard(),
           const SizedBox(height: 14),
           _etichetta('LE TUE APP'),
           _appCollegate(),
