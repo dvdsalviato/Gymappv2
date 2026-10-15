@@ -473,6 +473,41 @@ class DatabaseHelper {
     return StoricoEntry.fromMap(maps.first);
   }
 
+  /// Tutte le serie registrate, senza limite, con scheda, esercizio e categoria.
+  Future<List<Map<String, dynamic>>> getStoricoCompleto() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT storico.id AS id, storico.serie_numero AS serie_numero, storico.carico AS carico,
+             storico.rep AS rep, storico.data AS data, esercizi.nome AS esercizio_nome,
+             esercizi.a_tempo AS a_tempo, esercizi.categoria AS categoria, schede.nome AS scheda_nome
+      FROM storico
+      JOIN esercizi ON esercizi.id = storico.esercizio_id
+      JOIN schede ON schede.id = esercizi.scheda_id
+      ORDER BY storico.data DESC, storico.id DESC
+    ''');
+  }
+
+  /// Tutte le serie di un esercizio (per nome, anche se è in più schede).
+  Future<List<Map<String, dynamic>>> getStoricoEsercizio(String nome) async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT storico.id AS id, storico.serie_numero AS serie_numero, storico.carico AS carico,
+             storico.rep AS rep, storico.data AS data, esercizi.nome AS esercizio_nome,
+             esercizi.a_tempo AS a_tempo, esercizi.categoria AS categoria, schede.nome AS scheda_nome
+      FROM storico
+      JOIN esercizi ON esercizi.id = storico.esercizio_id
+      JOIN schede ON schede.id = esercizi.scheda_id
+      WHERE esercizi.nome = ? COLLATE NOCASE
+      ORDER BY storico.data DESC, storico.id DESC
+    ''', [nome]);
+  }
+
+  /// Corregge carico e ripetizioni (o durata) di una serie già registrata.
+  Future<void> updateStorico(int id, {required double carico, required int rep}) async {
+    final db = await database;
+    await db.update('storico', {'carico': carico, 'rep': rep}, where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<List<Map<String, dynamic>>> getStoricoConNome() async {
     final db = await database;
     return await db.rawQuery('''

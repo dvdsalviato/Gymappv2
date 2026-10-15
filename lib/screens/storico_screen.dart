@@ -1,8 +1,33 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import '../data/tempo.dart';
+import '../data/classificatore.dart';
+import '../data/progressione.dart' show formatKg;
 import '../db/database_helper.dart';
 import '../theme/app_theme.dart';
+import 'storico_esercizio_screen.dart';
+
+const List<String> _ordineGruppi = [
+  'Petto',
+  'Schiena',
+  'Gambe',
+  'Spalle',
+  'Bicipiti',
+  'Tricipiti',
+  'Core',
+  'Cardio',
+  'Altro',
+];
+
+/// Un esercizio con tutte le sue serie (le più recenti prima).
+class _Esercizio {
+  final String nome;
+  final bool aTempo;
+  final List<Map<String, dynamic>> serie;
+  const _Esercizio(this.nome, this.aTempo, this.serie);
+
+  Map<String, dynamic> get record => serie.reduce((a, b) => valoreSerie(a) >= valoreSerie(b) ? a : b);
+  String get ultimaVolta => dataBreve(giornoDi(serie.first));
+}
 
 class StoricoScreen extends StatefulWidget {
   const StoricoScreen({super.key});
@@ -12,9 +37,13 @@ class StoricoScreen extends StatefulWidget {
 }
 
 class _StoricoScreenState extends State<StoricoScreen> {
-  List<Map<String, dynamic>> _voci = [];
   bool _loading = true;
-  bool _perGiorno = false;
+  bool _vuoto = true;
+  int _vista = 0; // 0 = per scheda, 1 = per gruppo, 2 = per giorno
+  Map<String, List<_Esercizio>> _perScheda = {};
+  Map<String, List<_Esercizio>> _perGruppo = {};
+  Map<String, List<Map<String, dynamic>>> _perGiorno = {};
+  List<String> _giorni = [];
 
   @override
   void initState() {
@@ -22,52 +51,74 @@ class _StoricoScreenState extends State<StoricoScreen> {
     _carica();
   }
 
-  Future<void> _carica() async {
-    setState(() => _loading = true);
-    final voci = await DatabaseHelper.instance.getStoricoConNome();
+  Future<void> _carica({bool silenzioso = false}) async {
+    if (!silenzioso) setState(() => _loading = true);
+    final voci = await DatabaseHelper.instance.getStoricoCompleto();
+
+    final categoriePerNome = <String, String>{};
+    String categoriaDi(String nome, String? categoria) {
+      if (categoria != null && categoria != 'Altro') return categoria;
+      return categoriePerNome.putIfAbsent(nome, () => classificaEsercizio(nome) ?? 'Altro');
+    }
+
+    final scheda = <String, Map<String, List<Map<String, dynamic>>>>{};
+    final gruppo = <String, Map<String, List<Map<String, dynamic>>>>{};
+    final giorno = <String, List<Map<String, dynamic>>>{};
+    for (final v in voci) {
+      final nomeScheda = (v['scheda_nome'] as String?) ?? 'Scheda';
+      final nome = v['esercizio_nome'] as String;
+      scheda.putIfAbsent(nomeScheda, () => {}).putIfAbsent(nome, () => []).add(v);
+      // Per gruppo l'esercizio si unisce anche se è in schede diverse.
+      gruppo
+          .putIfAbsent(categoriaDi(nome, v['categoria'] as String?), () => {})
+          .putIfAbsent(nome.trim().toLowerCase(), () => [])
+          .add(v);
+      giorno.putIfAbsent(giornoDi(v), () => []).add(v);
+    }
+
+    List<_Esercizio> converti(Map<String, List<Map<String, dynamic>>> m) {
+      return [
+        for (final righe in m.values)
+          _Esercizio(righe.first['esercizio_nome'] as String, serieATempo(righe.first), righe),
+      ];
+    }
+
+    final perScheda = {for (final e in scheda.entries) e.key: converti(e.value)};
+    final perGruppo = <String, List<_Esercizio>>{};
+    for (final nome in _ordineGruppi) {
+      final m = gruppo[nome];
+      if (m != null) perGruppo[nome] = converti(m);
+    }
+    for (final e in gruppo.entries) {
+      perGruppo.putIfAbsent(e.key, () => converti(e.value));
+    }
+
+    if (!mounted) return;
     setState(() {
-      _voci = voci;
+      _vuoto = voci.isEmpty;
+      _perScheda = perScheda;
+      _perGruppo = perGruppo;
+      _perGiorno = giorno;
+      _giorni = giorno.keys.toList()..sort((a, b) => b.compareTo(a));
       _loading = false;
     });
   }
 
-  String _formattaData(String iso) {
-    final d = DateTime.tryParse(iso);
-    if (d == null) return iso;
-    String due(int n) => n.toString().padLeft(2, '0');
-    return '${due(d.day)}/${due(d.month)}/${d.year} ${due(d.hour)}:${due(d.minute)}';
+  Future<void> _apriDettaglio(_Esercizio e) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => StoricoEsercizioScreen(nome: e.nome)),
+    );
+    // Al ritorno potresti aver corretto o eliminato delle serie.
+    await _carica(silenzioso: true);
   }
 
-  // scheda -> esercizio -> lista di serie (più recenti prima, come da query)
-  Map<String, Map<String, List<Map<String, dynamic>>>> _raggruppa() {
-    final risultato = <String, Map<String, List<Map<String, dynamic>>>>{};
-    for (final v in _voci) {
-      final scheda = (v['scheda_nome'] as String?) ?? 'Scheda';
-      final esercizio = v['esercizio_nome'] as String;
-      risultato.putIfAbsent(scheda, () => {});
-      risultato[scheda]!.putIfAbsent(esercizio, () => []).add(v);
-    }
-    return risultato;
-  }
-
-  bool _eATempo(Map<String, dynamic> m) => (m['a_tempo'] as int?) == 1;
-
-  double _valoreGrafico(Map<String, dynamic> m) {
-    final v = _eATempo(m) ? m['rep'] : m['carico'];
-    return (v as num).toDouble();
-  }
-
-  String _testoSerie(Map<String, dynamic> m) {
-    if (_eATempo(m)) return formattaDurata((m['rep'] as num).toInt());
-    return '${m['carico']} kg x ${m['rep']}';
-  }
-
-  Future<bool> _conferma(String titolo, String testo) async {
-    final r = await showDialog<bool>(
+  Future<void> _eliminaGiorno(String giorno, int n) async {
+    final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(titolo),
-        content: Text(testo),
+        title: const Text('Eliminare questo giorno?'),
+        content: Text('Verranno eliminate tutte le $n serie registrate e la presenza nel calendario.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
           FilledButton(
@@ -78,27 +129,111 @@ class _StoricoScreenState extends State<StoricoScreen> {
         ],
       ),
     );
-    return r == true;
-  }
-
-  Future<void> _eliminaSerie(Map<String, dynamic> v) async {
-    final ok = await _conferma(
-      'Eliminare questa serie?',
-      '${v['esercizio_nome']}: ${_testoSerie(v)}\n${_formattaData(v['data'] as String)}',
-    );
-    if (!ok) return;
-    await DatabaseHelper.instance.deleteStorico(v['id'] as int);
-    await _carica();
-  }
-
-  Future<void> _eliminaGiorno(String giorno, int n) async {
-    final ok = await _conferma(
-      'Eliminare questo giorno?',
-      'Verranno eliminate tutte le $n serie registrate e la presenza nel calendario.',
-    );
-    if (!ok) return;
+    if (ok != true) return;
     await DatabaseHelper.instance.deleteStoricoGiorno(giorno);
-    await _carica();
+    await _carica(silenzioso: true);
+  }
+
+  /// Piccolo grafico senza assi: il carico massimo degli ultimi allenamenti.
+  Widget _miniGrafico(_Esercizio e) {
+    final punti = puntiPerGiorno(e.serie, 0);
+    final ultimi = punti.length > 10 ? punti.sublist(punti.length - 10) : punti;
+    if (ultimi.length < 2) return const SizedBox.shrink();
+    return LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        lineTouchData: const LineTouchData(enabled: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: [for (var i = 0; i < ultimi.length; i++) FlSpot(i.toDouble(), ultimi[i].valore)],
+            isCurved: true,
+            color: AppColors.accento,
+            barWidth: 2,
+            dotData: const FlDotData(show: false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _rigaEsercizio(_Esercizio e) {
+    return InkWell(
+      onTap: () => _apriDettaglio(e),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(e.nome, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(
+                    '🏆 ${testoSerie(e.record)} · ultima volta ${e.ultimaVolta}',
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 64, height: 28, child: _miniGrafico(e)),
+            const SizedBox(width: 4),
+            Icon(Icons.chevron_right, color: Colors.grey.shade500),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sezione(String titolo, List<_Esercizio> esercizi, bool aperta) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(color: coloreCard(context), borderRadius: BorderRadius.circular(20)),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: PageStorageKey<String>('storico-$_vista-$titolo'),
+          initiallyExpanded: aperta,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+          childrenPadding: const EdgeInsets.only(bottom: 8),
+          title: Text(
+            titolo,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.accento),
+          ),
+          subtitle: Text(
+            esercizi.length == 1 ? '1 esercizio' : '${esercizi.length} esercizi',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+          ),
+          children: [for (final e in esercizi) _rigaEsercizio(e)],
+        ),
+      ),
+    );
+  }
+
+  Widget _vistaRaggruppata(Map<String, List<_Esercizio>> sezioni) {
+    final voci = sezioni.entries.toList();
+    return RefreshIndicator(
+      onRefresh: () => _carica(silenzioso: true),
+      child: ListView.builder(
+        itemCount: voci.length,
+        itemBuilder: (context, i) => _sezione(voci[i].key, voci[i].value, i == 0),
+      ),
+    );
+  }
+
+  /// "3 × 10 a 60 kg" se le serie sono uguali, altrimenti "60×10 · 60×8 · 55×8".
+  String _riassunto(List<Map<String, dynamic>> serie) {
+    if (serie.isEmpty) return '';
+    if (serieATempo(serie.first)) return serie.map(testoSerie).join(' · ');
+    final primo = serie.first;
+    final uguali = serie.every((s) => s['carico'] == primo['carico'] && s['rep'] == primo['rep']);
+    if (uguali) {
+      return '${serie.length} × ${primo['rep']} a ${formatKg((primo['carico'] as num).toDouble())} kg';
+    }
+    return serie.map((s) => '${formatKg((s['carico'] as num).toDouble())}×${s['rep']}').join(' · ');
   }
 
   Widget _cardGiorno(String giorno, List<Map<String, dynamic>> righe) {
@@ -111,8 +246,8 @@ class _StoricoScreenState extends State<StoricoScreen> {
       perEsercizio.putIfAbsent(v['esercizio_nome'] as String, () => []).add(v);
     }
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 14),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
       decoration: BoxDecoration(color: coloreCard(context), borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,25 +269,25 @@ class _StoricoScreenState extends State<StoricoScreen> {
             ],
           ),
           for (final e in perEsercizio.entries)
-            Padding(
-              padding: const EdgeInsets.only(top: 6, right: 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 8,
-                    children: [
-                      for (final v in e.value)
-                        InputChip(
-                          label: Text(_testoSerie(v), style: const TextStyle(fontSize: 12)),
-                          onDeleted: () => _eliminaSerie(v),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                    ],
-                  ),
-                ],
+            InkWell(
+              onTap: () => _apriDettaglio(_Esercizio(e.key, serieATempo(e.value.first), e.value.reversed.toList())),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 4, right: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text(_riassunto(e.value), style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.chevron_right, size: 20, color: Colors.grey.shade500),
+                  ],
+                ),
               ),
             ),
         ],
@@ -161,64 +296,31 @@ class _StoricoScreenState extends State<StoricoScreen> {
   }
 
   Widget _vistaPerGiorno() {
-    final perGiorno = <String, List<Map<String, dynamic>>>{};
-    for (final v in _voci) {
-      final g = (v['data'] as String).substring(0, 10);
-      perGiorno.putIfAbsent(g, () => []).add(v);
-    }
-    final giorni = perGiorno.keys.toList()..sort((a, b) => b.compareTo(a));
     return RefreshIndicator(
-      onRefresh: _carica,
-      child: ListView(
-        children: [for (final g in giorni) _cardGiorno(g, perGiorno[g]!)],
-      ),
-    );
-  }
-
-  Widget _grafico(List<Map<String, dynamic>> serie) {
-    // La lista arriva più-recente-prima: la giriamo per avere l'asse del
-    // tempo che scorre da sinistra (vecchio) a destra (recente).
-    final cronologico = serie.reversed.toList();
-    if (cronologico.length < 2) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Text(
-          'Serve più di un allenamento per vedere il grafico',
-          style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-        ),
-      );
-    }
-    final spots = [
-      for (int i = 0; i < cronologico.length; i++)
-        FlSpot(i.toDouble(), _valoreGrafico(cronologico[i])),
-    ];
-    return SizedBox(
-      height: 90,
-      child: LineChart(
-        LineChartData(
-          gridData: const FlGridData(show: false),
-          titlesData: const FlTitlesData(show: false),
-          borderData: FlBorderData(show: false),
-          lineTouchData: const LineTouchData(enabled: false),
-          minY: 0,
-          lineBarsData: [
-            LineChartBarData(
-              spots: spots,
-              isCurved: true,
-              color: AppColors.accento,
-              barWidth: 3,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(show: true, color: Color(0x2239FF14)),
-            ),
-          ],
-        ),
+      onRefresh: () => _carica(silenzioso: true),
+      child: ListView.builder(
+        itemCount: _giorni.length,
+        itemBuilder: (context, i) => _cardGiorno(_giorni[i], _perGiorno[_giorni[i]]!),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final gruppi = _raggruppa();
+    Widget corpo;
+    if (_loading) {
+      corpo = const Center(child: CircularProgressIndicator());
+    } else if (_vuoto) {
+      corpo = Center(
+        child: Text('Nessuna serie registrata ancora.', style: TextStyle(color: Colors.grey.shade600)),
+      );
+    } else if (_vista == 0) {
+      corpo = _vistaRaggruppata(_perScheda);
+    } else if (_vista == 1) {
+      corpo = _vistaRaggruppata(_perGruppo);
+    } else {
+      corpo = _vistaPerGiorno();
+    }
 
     return SafeArea(
       child: Padding(
@@ -228,137 +330,29 @@ class _StoricoScreenState extends State<StoricoScreen> {
           children: [
             const Text('Storico', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold)),
             const SizedBox(height: 4),
-            Text('I tuoi allenamenti, per scheda ed esercizio', style: TextStyle(color: Colors.grey.shade600)),
+            Text(
+              'Tocca un esercizio per vedere l\'andamento e correggere le serie',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
             const SizedBox(height: 12),
-            SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('Per scheda')),
-                ButtonSegment(value: true, label: Text('Per giorno')),
-              ],
-              selected: {_perGiorno},
-              onSelectionChanged: (v) => setState(() => _perGiorno = v.first),
-              style: SegmentedButton.styleFrom(
-                selectedBackgroundColor: AppColors.accento,
-                selectedForegroundColor: Colors.black,
+            SizedBox(
+              width: double.infinity,
+              child: SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 0, label: Text('Scheda')),
+                  ButtonSegment(value: 1, label: Text('Gruppo')),
+                  ButtonSegment(value: 2, label: Text('Giorno')),
+                ],
+                selected: {_vista},
+                onSelectionChanged: (v) => setState(() => _vista = v.first),
+                style: SegmentedButton.styleFrom(
+                  selectedBackgroundColor: AppColors.accento,
+                  selectedForegroundColor: Colors.black,
+                ),
               ),
             ),
             const SizedBox(height: 14),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _voci.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Nessuna serie registrata ancora.',
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                        )
-                      : _perGiorno
-                          ? _vistaPerGiorno()
-                          : RefreshIndicator(
-                          onRefresh: _carica,
-                          child: ListView(
-                            children: gruppi.entries.map((scheda) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 24),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      scheda.key,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.accento,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    ...scheda.value.entries.map((esercizio) {
-                                      final serie = esercizio.value;
-                                      return Container(
-                                        margin: const EdgeInsets.only(bottom: 14),
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: coloreCard(context),
-                                          borderRadius: BorderRadius.circular(20),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              esercizio.key,
-                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                            ),
-                                            Builder(
-                                              builder: (context) {
-                                                final record = serie.reduce(
-                                                  (a, b) => _valoreGrafico(a) >= _valoreGrafico(b) ? a : b,
-                                                );
-                                                return Padding(
-                                                  padding: const EdgeInsets.only(top: 2, bottom: 4),
-                                                  child: Text(
-                                                    '🏆 Record: ${_testoSerie(record)}',
-                                                    style: const TextStyle(
-                                                      color: AppColors.accento,
-                                                      fontWeight: FontWeight.w600,
-                                                      fontSize: 13,
-                                                    ),
-                                                  ),
-                                                );
-                                              },
-                                            ),
-                                            _grafico(serie),
-                                            const SizedBox(height: 8),
-                                            ...serie.take(6).map(
-                                                  (v) => Padding(
-                                                    padding: const EdgeInsets.symmetric(vertical: 3),
-                                                    child: Row(
-                                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                      children: [
-                                                        Text(
-                                                          _formattaData(v['data'] as String),
-                                                          style: TextStyle(
-                                                            color: Colors.grey.shade600,
-                                                            fontSize: 13,
-                                                          ),
-                                                        ),
-                                                        Row(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            Text(
-                                                              _testoSerie(v),
-                                                              style: const TextStyle(fontWeight: FontWeight.w600),
-                                                            ),
-                                                            const SizedBox(width: 6),
-                                                            InkResponse(
-                                                              onTap: () => _eliminaSerie(v),
-                                                              child: Icon(Icons.close, size: 18, color: Colors.grey.shade600),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ),
-                                            if (serie.length > 6)
-                                              Padding(
-                                                padding: const EdgeInsets.only(top: 4),
-                                                child: Text(
-                                                  '+ altre ${serie.length - 6} serie',
-                                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                      );
-                                    }),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-            ),
+            Expanded(child: corpo),
           ],
         ),
       ),

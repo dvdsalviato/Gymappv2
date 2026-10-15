@@ -44,6 +44,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   // in coda con le frecce avanti/indietro, senza cambiare quale sia
   // davvero l'esercizio attivo finché non si preme "Vai".
   int _cursore = 0;
+  // Durante il riposo: quale degli esercizi rimasti è stato scelto come prossimo (1 = il successivo in scheda).
+  int _sceltaRiposo = 1;
 
   StoricoEntry? _ultimoStorico;
   StoricoEntry? _recordPersonale;
@@ -475,6 +477,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   }
 
   void _preparaProssima() {
+    _sceltaRiposo = 1;
     final voceCorrente = _coda.first;
     final ultimaSerieEsercizio = voceCorrente.numeroSerie >= voceCorrente.esercizio.serieTotali;
 
@@ -510,6 +513,23 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     }
   }
 
+  /// Vero se, finita questa serie, si passa a un altro esercizio e ce n'è più di uno tra cui scegliere.
+  bool get _puoiScegliereProssimo =>
+      _coda.length > 2 && _coda.first.numeroSerie >= _coda.first.esercizio.serieTotali;
+
+  /// Frecce durante il recupero: cambiano l'esercizio che verrà dopo (utile se la macchina è occupata).
+  void _cambiaProssimo(int delta) {
+    if (_coda.length < 2) return;
+    final nuovo = (_sceltaRiposo + delta).clamp(1, _coda.length - 1);
+    if (nuovo == _sceltaRiposo) return;
+    setState(() {
+      _sceltaRiposo = nuovo;
+      _prossimoEsercizio = _coda[nuovo].esercizio;
+      _prossimaSerieNumero = _coda[nuovo].numeroSerie;
+    });
+    _caricaProssimoStorico();
+  }
+
   void _saltaRiposo() {
     _fermaTimerRiposo(sincronizza: false);
     _avanza();
@@ -519,6 +539,13 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     final voceCorrente = _coda.first;
     final esercizioPrecedente = voceCorrente.esercizio;
     final ultimaSerieEsercizio = voceCorrente.numeroSerie >= voceCorrente.esercizio.serieTotali;
+
+    // Se durante il riposo hai scelto un altro esercizio, lo metto subito dopo quello appena finito.
+    if (ultimaSerieEsercizio && _sceltaRiposo > 1 && _sceltaRiposo < _coda.length) {
+      final scelta = _coda.removeAt(_sceltaRiposo);
+      _coda.insert(1, scelta);
+    }
+    _sceltaRiposo = 1;
 
     if (ultimaSerieEsercizio) {
       _coda.removeAt(0);
@@ -922,6 +949,29 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                     compatta: true,
                     aTempo: _prossimoEsercizio?.aTempo ?? false,
                   ),
+                  if (_puoiScegliereProssimo) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'Prossimo esercizio $_sceltaRiposo di ${_coda.length - 1}',
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          onPressed: _sceltaRiposo > 1 ? () => _cambiaProssimo(-1) : null,
+                          icon: const Icon(Icons.chevron_left, size: 34),
+                          tooltip: 'Esercizio precedente',
+                        ),
+                        const SizedBox(width: 24),
+                        IconButton(
+                          onPressed: _sceltaRiposo < _coda.length - 1 ? () => _cambiaProssimo(1) : null,
+                          icon: const Icon(Icons.chevron_right, size: 34),
+                          tooltip: 'Esercizio successivo',
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
