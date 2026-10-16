@@ -10,7 +10,7 @@ import '../services/condivisione_scheda.dart';
 import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
 import 'scanner_qr_screen.dart';
-import 'scheda_editor_screen.dart';
+import 'scheda_dettaglio_screen.dart';
 import 'workout_screen.dart';
 
 class SchedeScreen extends StatefulWidget {
@@ -97,12 +97,26 @@ class _SchedeScreenState extends State<SchedeScreen> {
     _carica();
   }
 
-  Future<void> _apriEditor(Scheda scheda) async {
-    await Navigator.push(
+  /// Tocco sulla scheda: si apre il dettaglio, da cui si può modificare,
+  /// duplicare, condividere, eliminare o iniziare l'allenamento.
+  Future<void> _apriDettaglio(Scheda scheda) async {
+    final azione = await Navigator.push<String>(
       context,
-      MaterialPageRoute(builder: (_) => SchedaEditorScreen(scheda: scheda)),
+      MaterialPageRoute(builder: (_) => SchedaDettaglioScreen(scheda: scheda)),
     );
-    _carica();
+    await _carica();
+    if (!mounted) return;
+    if (azione == 'inizia') {
+      await _iniziaAllenamento(scheda);
+    } else if (azione == 'condividi') {
+      await _condividiScheda(scheda);
+    } else if (azione == 'elimina') {
+      await _eliminaScheda(scheda);
+    } else if (azione == 'duplicata') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Scheda duplicata: la trovi in fondo all\'elenco')),
+      );
+    }
   }
 
   Future<void> _iniziaAllenamento(Scheda scheda) async {
@@ -373,7 +387,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
                         )
                       : ListView.separated(
                           itemCount: _schede.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 14),
+                          separatorBuilder: (_, __) => const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final s = _schede[index];
                             final n = _conteggioEsercizi[s.id] ?? 0;
@@ -381,9 +395,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
                               nome: s.nome,
                               numeroEsercizi: n,
                               onInizia: () => _iniziaAllenamento(s),
-                              onModifica: () => _apriEditor(s),
-                              onElimina: () => _eliminaScheda(s),
-                              onCondividi: () => _condividiScheda(s),
+                              onApri: () => _apriDettaglio(s),
                             );
                           },
                         ),
@@ -413,83 +425,70 @@ class _SchedeScreenState extends State<SchedeScreen> {
   }
 }
 
+/// Card compatta: tasto play a sinistra, nome e numero di esercizi accanto.
+/// Il tocco sulla card apre il dettaglio della scheda.
 class _CardScheda extends StatelessWidget {
   final String nome;
   final int numeroEsercizi;
   final VoidCallback onInizia;
-  final VoidCallback onModifica;
-  final VoidCallback onElimina;
-  final VoidCallback onCondividi;
+  final VoidCallback onApri;
 
   const _CardScheda({
     required this.nome,
     required this.numeroEsercizi,
     required this.onInizia,
-    required this.onModifica,
-    required this.onElimina,
-    required this.onCondividi,
+    required this.onApri,
   });
 
   @override
   Widget build(BuildContext context) {
     final scuro = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: scuro ? Colors.white.withOpacity(0.06) : Colors.transparent),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  nome,
-                  style: GoogleFonts.oswald(fontSize: 26, fontWeight: FontWeight.w700, height: 1.1),
-                ),
-              ),
-              IconButton(
-                onPressed: onCondividi,
-                icon: const Icon(Icons.qr_code, color: Colors.grey),
-                tooltip: 'Condividi come QR',
-              ),
-              IconButton(
-                onPressed: onElimina,
-                icon: const Icon(Icons.delete_outline, color: Colors.grey),
-              ),
-            ],
+    return Material(
+      color: coloreSuperficie(context),
+      borderRadius: BorderRadius.circular(26),
+      child: InkWell(
+        onTap: onApri,
+        borderRadius: BorderRadius.circular(26),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: scuro ? Colors.white.withOpacity(0.06) : Colors.transparent),
           ),
-          Text(
-            '$numeroEsercizi esercizi',
-            style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 18),
-          Row(
+          child: Row(
             children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: onInizia,
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Inizia'),
-                ),
-              ),
-              const SizedBox(width: 12),
               InkWell(
-                onTap: onModifica,
-                borderRadius: BorderRadius.circular(28),
+                onTap: onInizia,
+                customBorder: const CircleBorder(),
                 child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(color: coloreChip(context), shape: BoxShape.circle),
-                  child: Icon(Icons.edit, color: scuro ? Colors.white : Colors.black87),
+                  width: 52,
+                  height: 52,
+                  decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+                  child: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 32),
                 ),
               ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      nome,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.w700, height: 1.15),
+                    ),
+                    Text(
+                      numeroEsercizi == 1 ? '1 esercizio' : '$numeroEsercizi esercizi',
+                      style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey.shade500),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

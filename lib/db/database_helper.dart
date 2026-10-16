@@ -115,6 +115,37 @@ class DatabaseHelper {
     return await db.update('schede', scheda.toMap(), where: 'id = ?', whereArgs: [scheda.id]);
   }
 
+  /// Crea una copia della scheda con tutti i suoi esercizi (lo storico non si copia).
+  /// Restituisce l'id della nuova scheda, oppure -1 se la scheda non esiste.
+  Future<int> duplicaScheda(int schedaId) async {
+    final db = await database;
+    return await db.transaction((txn) async {
+      final righe = await txn.query('schede', where: 'id = ?', whereArgs: [schedaId]);
+      if (righe.isEmpty) return -1;
+      final esistenti = (await txn.query('schede', columns: ['nome'])).map((r) => r['nome'] as String).toSet();
+      final base = righe.first['nome'] as String;
+      var nome = '$base (copia)';
+      var n = 2;
+      while (esistenti.contains(nome)) {
+        nome = '$base (copia $n)';
+        n++;
+      }
+      final scheda = Map<String, Object?>.from(righe.first)
+        ..remove('id')
+        ..['nome'] = nome
+        ..['data_creazione'] = DateTime.now().toIso8601String();
+      final nuovoId = await txn.insert('schede', scheda);
+      final esercizi = await txn.query('esercizi', where: 'scheda_id = ?', whereArgs: [schedaId], orderBy: 'ordine ASC');
+      for (final e in esercizi) {
+        final copia = Map<String, Object?>.from(e)
+          ..remove('id')
+          ..['scheda_id'] = nuovoId;
+        await txn.insert('esercizi', copia);
+      }
+      return nuovoId;
+    });
+  }
+
   Future<int> deleteScheda(int id) async {
     final db = await database;
     return await db.delete('schede', where: 'id = ?', whereArgs: [id]);

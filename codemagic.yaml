@@ -73,6 +73,8 @@ workflows:
           grep -n "esugar\|VERSION_17\|jvmTarget" "$FILE"
       - name: Dipendenze
         script: flutter pub get
+      - name: Controllo errori del codice
+        script: flutter analyze lib --no-fatal-infos --no-fatal-warnings
       - name: Icona app
         script: dart run flutter_launcher_icons
       - name: Build APK

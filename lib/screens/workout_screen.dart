@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/progressione.dart';
+import '../widgets/calcolatore_dischi.dart';
 import '../data/tempo.dart';
 import '../models/riepilogo.dart';
 import '../services/notifica_allenamento.dart';
@@ -1496,7 +1497,16 @@ class _RegistraSerieSheetState extends State<_RegistraSerieSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => mostraCalcolatoreDischi(context, _caricoKey.currentState?.valore ?? 0),
+              icon: const Icon(Icons.calculate_outlined, size: 20),
+              label: const Text('Dischi per lato'),
+            ),
+          ),
+          const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: _conferma,
             icon: const Icon(Icons.check),
