@@ -95,6 +95,11 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (e.supersetId != 0)
+                  const Text(
+                    'SUPERSET',
+                    style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.3),
+                  ),
                 Text(e.nome, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                 const SizedBox(height: 2),
                 Text(e.categoria, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),

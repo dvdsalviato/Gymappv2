@@ -39,6 +39,11 @@ class DatabaseHelper {
         if (!haATempo) {
           await db.execute('ALTER TABLE esercizi ADD COLUMN a_tempo INTEGER NOT NULL DEFAULT 0');
         }
+        // Superset: stessa idea, colonna aggiunta senza toccare i dati.
+        final haSuperset = colonne.any((c) => c['name'] == 'superset');
+        if (!haSuperset) {
+          await db.execute('ALTER TABLE esercizi ADD COLUMN superset INTEGER NOT NULL DEFAULT 0');
+        }
       },
       onCreate: _onCreate,
       // Nessuna cancellazione: le modifiche allo schema vanno fatte in modo
@@ -176,12 +181,21 @@ class DatabaseHelper {
 
   Future<int> updateEsercizio(Esercizio esercizio) async {
     final db = await database;
+    // Il superset si cambia solo con setSuperset: una modifica o un riordino
+    // non lo deve mai azzerare per sbaglio.
+    final campi = esercizio.toMap()..remove('superset');
     return await db.update(
       'esercizi',
-      esercizio.toMap(),
+      campi,
       where: 'id = ?',
       whereArgs: [esercizio.id],
     );
+  }
+
+  /// Imposta il superset di un esercizio (0 = nessuno).
+  Future<void> setSuperset(int esercizioId, int supersetId) async {
+    final db = await database;
+    await db.update('esercizi', {'superset': supersetId}, where: 'id = ?', whereArgs: [esercizioId]);
   }
 
   Future<int> deleteEsercizio(int id) async {

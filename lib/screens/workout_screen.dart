@@ -95,7 +95,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       }
     } else {
       GestoreSessione.inizioAllenamento = DateTime.now();
-      _coda = widget.esercizi.map((e) => VoceCoda(e, 1)).toList();
+      _coda = _raggruppaSuperset(widget.esercizi.map((e) => VoceCoda(e, 1)).toList());
     }
     _caricaUltimoStorico();
     if (_fase == FaseAllenamento.riposo) {
@@ -236,7 +236,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
 
     _preparaProssima();
 
-    final riposo = _esercizioCorrente.riposoSecondi;
+    // Nel superset il recupero c'è solo a fine giro, non tra un esercizio e l'altro.
+    final riposo = _transizioneSuperset ? 0 : _esercizioCorrente.riposoSecondi;
     if (riposo <= 0) {
       _avanza();
       return;
@@ -332,7 +333,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     _repInseriti = secondiFatti;
     _preparaProssima();
 
-    final riposo = _esercizioCorrente.riposoSecondi;
+    final riposo = _transizioneSuperset ? 0 : _esercizioCorrente.riposoSecondi;
     if (riposo <= 0) {
       _avanza();
       return;
@@ -477,12 +478,62 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     });
   }
 
+  /// Mette uno dopo l'altro gli esercizi dello stesso superset, nel punto in cui compare il primo.
+  List<VoceCoda> _raggruppaSuperset(List<VoceCoda> coda) {
+    final risultato = <VoceCoda>[];
+    final inseriti = <VoceCoda>{};
+    for (final v in coda) {
+      if (inseriti.contains(v)) continue;
+      risultato.add(v);
+      inseriti.add(v);
+      final id = v.esercizio.supersetId;
+      if (id == 0) continue;
+      for (final altro in coda) {
+        if (!inseriti.contains(altro) && altro.esercizio.supersetId == id) {
+          risultato.add(altro);
+          inseriti.add(altro);
+        }
+      }
+    }
+    return risultato;
+  }
+
+  /// Se l'esercizio in corso è in un superset e ci sono compagni ancora da fare,
+  /// restituisce quello che tocca dopo questa serie. Prima si completa il giro
+  /// (chi ha ancora la serie di questo giro da fare), poi si riparte dal primo.
+  VoceCoda? _compagnoSuperset() {
+    final corrente = _coda.first;
+    final id = corrente.esercizio.supersetId;
+    if (id == 0) return null;
+    final altri = _coda.skip(1).where((v) => v.esercizio.supersetId == id).toList();
+    if (altri.isEmpty) return null;
+    final inAttesa = altri.where((v) => v.numeroSerie <= corrente.numeroSerie).toList();
+    final candidati = inAttesa.isNotEmpty ? inAttesa : altri;
+    candidati.sort((a, b) {
+      final c = a.numeroSerie.compareTo(b.numeroSerie);
+      return c != 0 ? c : a.esercizio.ordine.compareTo(b.esercizio.ordine);
+    });
+    return candidati.first;
+  }
+
+  /// Vero se dopo questa serie si passa subito al compagno del superset, senza recupero.
+  bool get _transizioneSuperset {
+    final corrente = _coda.first;
+    final id = corrente.esercizio.supersetId;
+    if (id == 0) return false;
+    return _coda.skip(1).any((v) => v.esercizio.supersetId == id && v.numeroSerie <= corrente.numeroSerie);
+  }
+
   void _preparaProssima() {
     _sceltaRiposo = 1;
     final voceCorrente = _coda.first;
+    final compagno = _compagnoSuperset();
     final ultimaSerieEsercizio = voceCorrente.numeroSerie >= voceCorrente.esercizio.serieTotali;
 
-    if (ultimaSerieEsercizio) {
+    if (compagno != null) {
+      _prossimoEsercizio = compagno.esercizio;
+      _prossimaSerieNumero = compagno.numeroSerie;
+    } else if (ultimaSerieEsercizio) {
       if (_coda.length > 1) {
         _prossimoEsercizio = _coda[1].esercizio;
         _prossimaSerieNumero = _coda[1].numeroSerie;
@@ -516,7 +567,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
 
   /// Vero se, finita questa serie, si passa a un altro esercizio e ce n'è più di uno tra cui scegliere.
   bool get _puoiScegliereProssimo =>
-      _coda.length > 2 && _coda.first.numeroSerie >= _coda.first.esercizio.serieTotali;
+      _coda.length > 2 &&
+      _coda.first.numeroSerie >= _coda.first.esercizio.serieTotali &&
+      _compagnoSuperset() == null;
 
   /// Frecce durante il recupero: cambiano l'esercizio che verrà dopo (utile se la macchina è occupata).
   void _cambiaProssimo(int delta) {
@@ -540,9 +593,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     final voceCorrente = _coda.first;
     final esercizioPrecedente = voceCorrente.esercizio;
     final ultimaSerieEsercizio = voceCorrente.numeroSerie >= voceCorrente.esercizio.serieTotali;
+    // Da calcolare prima di toccare la coda: chi tocca dopo nel superset.
+    final compagno = _compagnoSuperset();
 
     // Se durante il riposo hai scelto un altro esercizio, lo metto subito dopo quello appena finito.
-    if (ultimaSerieEsercizio && _sceltaRiposo > 1 && _sceltaRiposo < _coda.length) {
+    if (compagno == null && ultimaSerieEsercizio && _sceltaRiposo > 1 && _sceltaRiposo < _coda.length) {
       final scelta = _coda.removeAt(_sceltaRiposo);
       _coda.insert(1, scelta);
     }
@@ -552,6 +607,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       _coda.removeAt(0);
     } else {
       voceCorrente.numeroSerie++;
+    }
+
+    // Superset: il compagno passa in testa, l'esercizio appena fatto resta subito dietro.
+    if (compagno != null) {
+      _coda.remove(compagno);
+      _coda.insert(0, compagno);
     }
 
     if (_coda.isEmpty) {
@@ -571,11 +632,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     // Esercizio diverso -> torna sulla schermata "pronto", dove ci sono
     // anche le frecce per sfogliare gli esercizi rimasti.
     final stessoEsercizio = identical(_coda.first.esercizio, esercizioPrecedente);
+    final proxATempo = _coda.first.esercizio.aTempo;
+    // Anche il passaggio al compagno del superset parte da solo (tranne se è a tempo: lì serve "Vai").
+    final partiSubito = stessoEsercizio || (compagno != null && !proxATempo);
+    final avviaATempo = partiSubito && proxATempo;
 
     setState(() {
       _cursore = 0;
-      _fase = stessoEsercizio ? FaseAllenamento.inCorso : FaseAllenamento.pronto;
+      _fase = partiSubito ? FaseAllenamento.inCorso : FaseAllenamento.pronto;
+      if (avviaATempo) {
+        _secondiTotali = _coda.first.esercizio.repTarget;
+        _secondiRimanenti = _secondiTotali;
+      }
     });
+    if (avviaATempo) _avviaTimerRiposo();
     await _caricaUltimoStorico();
   }
 
@@ -776,7 +846,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         children: [
           _suggerimento('Pronto? Premi VAI quando parti con la serie!'),
           const SizedBox(height: 20),
-          _hero('SERIE ${voce.numeroSerie} DI ${voce.esercizio.serieTotali}', voce.esercizio.nome, voce.esercizio.note),
+          _hero('${voce.esercizio.supersetId != 0 ? 'SUPERSET · ' : ''}SERIE ${voce.numeroSerie} DI ${voce.esercizio.serieTotali}', voce.esercizio.nome, voce.esercizio.note),
           const SizedBox(height: 20),
           _iconaEsercizio(icona: voce.esercizio.aTempo ? Icons.timer_outlined : Icons.fitness_center),
           const SizedBox(height: 20),
@@ -845,7 +915,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 12),
-                _hero('SERIE $_numeroSerie DI ${e.serieTotali}', e.nome, e.note),
+                _hero('${e.supersetId != 0 ? 'SUPERSET · ' : ''}SERIE $_numeroSerie DI ${e.serieTotali}', e.nome, e.note),
                 const SizedBox(height: 16),
                 if (aTempo)
                   Center(child: _anelloCountdown(etichetta: 'rimanenti', orologio: true, dimensione: 220))

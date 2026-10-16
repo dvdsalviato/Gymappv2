@@ -25,9 +25,79 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
     _carica();
   }
 
+  /// Un superset ha senso solo con almeno due esercizi di fila: se ne resta
+  /// uno solo (perché hai eliminato o spostato un compagno) lo tolgo dal gruppo.
+  Future<bool> _riparaSuperset(List<Esercizio> lista) async {
+    var cambiato = false;
+    var i = 0;
+    while (i < lista.length) {
+      final id = lista[i].supersetId;
+      var j = i;
+      while (j + 1 < lista.length && lista[j + 1].supersetId == id) {
+        j++;
+      }
+      if (id != 0 && j == i && lista[i].id != null) {
+        await DatabaseHelper.instance.setSuperset(lista[i].id!, 0);
+        cambiato = true;
+      }
+      i = j + 1;
+    }
+    return cambiato;
+  }
+
+  /// Collega l'esercizio in posizione [i] al successivo (o li scollega).
+  Future<void> _toggleSuperset(int i) async {
+    final a = _esercizi[i];
+    final b = _esercizi[i + 1];
+    if (a.id == null || b.id == null) return;
+    final db = DatabaseHelper.instance;
+    var massimo = 0;
+    for (final e in _esercizi) {
+      if (e.supersetId > massimo) massimo = e.supersetId;
+    }
+    if (a.supersetId != 0 && a.supersetId == b.supersetId) {
+      // Scollega: la parte dopo il taglio diventa un gruppo a sé (o nessuno).
+      final id = a.supersetId;
+      var fine = i + 1;
+      while (fine + 1 < _esercizi.length && _esercizi[fine + 1].supersetId == id) {
+        fine++;
+      }
+      var inizio = i;
+      while (inizio > 0 && _esercizi[inizio - 1].supersetId == id) {
+        inizio--;
+      }
+      final testa = _esercizi.sublist(inizio, i + 1);
+      final coda = _esercizi.sublist(i + 1, fine + 1);
+      if (testa.length < 2) {
+        for (final e in testa) {
+          await db.setSuperset(e.id!, 0);
+        }
+      }
+      final idCoda = coda.length < 2 ? 0 : massimo + 1;
+      for (final e in coda) {
+        await db.setSuperset(e.id!, idCoda);
+      }
+    } else {
+      // Collega: i due (e i loro eventuali gruppi) diventano un unico superset.
+      final alvo = a.supersetId != 0 ? a.supersetId : (b.supersetId != 0 ? b.supersetId : massimo + 1);
+      for (final e in _esercizi) {
+        final inGruppo = (a.supersetId != 0 && e.supersetId == a.supersetId) ||
+            (b.supersetId != 0 && e.supersetId == b.supersetId) ||
+            e.id == a.id ||
+            e.id == b.id;
+        if (inGruppo && e.id != null) await db.setSuperset(e.id!, alvo);
+      }
+    }
+    await _carica();
+  }
+
   Future<void> _carica() async {
     setState(() => _loading = true);
-    final lista = await DatabaseHelper.instance.getEsercizi(widget.scheda.id!);
+    var lista = await DatabaseHelper.instance.getEsercizi(widget.scheda.id!);
+    if (await _riparaSuperset(lista)) {
+      lista = await DatabaseHelper.instance.getEsercizi(widget.scheda.id!);
+    }
+    if (!mounted) return;
     setState(() {
       _esercizi = lista;
       _loading = false;
@@ -108,7 +178,7 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Text(
-                            'Tieni premuta la maniglia per riordinare',
+                            'Tieni premuta la maniglia per riordinare · usa il collegamento per creare un superset',
                             style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                           ),
                         ),
@@ -155,6 +225,16 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
+                                                if (e.supersetId != 0)
+                                                  const Text(
+                                                    'SUPERSET',
+                                                    style: TextStyle(
+                                                      color: AppColors.accento,
+                                                      fontWeight: FontWeight.w800,
+                                                      fontSize: 11,
+                                                      letterSpacing: 1.3,
+                                                    ),
+                                                  ),
                                                 Text(
                                                   e.nome,
                                                   style: const TextStyle(fontWeight: FontWeight.bold),
@@ -183,6 +263,21 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
                                             ),
                                           ),
                                         ),
+                                        if (index < _esercizi.length - 1)
+                                          IconButton(
+                                            tooltip: (e.supersetId != 0 && e.supersetId == _esercizi[index + 1].supersetId)
+                                                ? 'Scollega dal successivo'
+                                                : 'Collega al successivo in superset',
+                                            onPressed: () => _toggleSuperset(index),
+                                            icon: Icon(
+                                              (e.supersetId != 0 && e.supersetId == _esercizi[index + 1].supersetId)
+                                                  ? Icons.link
+                                                  : Icons.link_off,
+                                              color: (e.supersetId != 0 && e.supersetId == _esercizi[index + 1].supersetId)
+                                                  ? AppColors.accento
+                                                  : Colors.grey.shade400,
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),

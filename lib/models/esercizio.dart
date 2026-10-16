@@ -12,6 +12,10 @@ class Esercizio {
   /// Se vero l'esercizio è a tempo: [repTarget] contiene la durata in secondi.
   final bool aTempo;
 
+  /// Numero del superset a cui appartiene (0 = nessuno). Gli esercizi con lo
+  /// stesso numero si alternano serie dopo serie, senza recupero in mezzo.
+  final int supersetId;
+
   Esercizio({
     this.id,
     required this.schedaId,
@@ -23,6 +27,7 @@ class Esercizio {
     this.note,
     this.categoria = 'Altro',
     this.aTempo = false,
+    this.supersetId = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -37,6 +42,7 @@ class Esercizio {
       'note': note,
       'categoria': categoria,
       'a_tempo': aTempo ? 1 : 0,
+      'superset': supersetId,
     };
   }
 
@@ -52,6 +58,7 @@ class Esercizio {
       note: map['note'] as String?,
       categoria: (map['categoria'] as String?) ?? 'Altro',
       aTempo: (map['a_tempo'] as int?) == 1,
+      supersetId: (map['superset'] as int?) ?? 0,
     );
   }
 }
