@@ -4,6 +4,7 @@ import '../models/scheda.dart';
 import '../models/esercizio.dart';
 import '../models/storico.dart';
 import '../data/classificatore.dart';
+import '../data/csv_allenamenti.dart';
 
 class DatabaseHelper {
   DatabaseHelper._privateConstructor();
@@ -32,6 +33,20 @@ class DatabaseHelper {
           'id INTEGER PRIMARY KEY AUTOINCREMENT, '
           'peso_kg REAL NOT NULL, '
           'data TEXT NOT NULL)',
+        );
+        // Diario alimentare: una riga per ogni alimento mangiato, con i valori già calcolati.
+        await db.execute(
+          'CREATE TABLE IF NOT EXISTS diario_alimenti ('
+          'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+          'data TEXT NOT NULL, '
+          'pasto TEXT NOT NULL, '
+          'nome TEXT NOT NULL, '
+          'quantita REAL NOT NULL, '
+          'kcal REAL NOT NULL, '
+          'proteine REAL NOT NULL, '
+          'carboidrati REAL NOT NULL, '
+          'grassi REAL NOT NULL, '
+          'stima INTEGER NOT NULL DEFAULT 0)',
         );
         // Esercizi a tempo: colonna aggiunta senza toccare i dati esistenti.
         final colonne = await db.rawQuery('PRAGMA table_info(esercizi)');
@@ -118,6 +133,41 @@ class DatabaseHelper {
   Future<int> updateScheda(Scheda scheda) async {
     final db = await database;
     return await db.update('schede', scheda.toMap(), where: 'id = ?', whereArgs: [scheda.id]);
+  }
+
+  /// Crea una scheda con i suoi esercizi in un colpo solo (per i programmi pronti).
+  /// Se il nome esiste già aggiunge "(2)", "(3)"... Restituisce l'id della scheda.
+  Future<int> creaSchedaDaModello(String nome, List<Map<String, Object?>> esercizi) async {
+    final db = await database;
+    return await db.transaction((txn) async {
+      final esistenti = (await txn.query('schede', columns: ['nome'])).map((r) => r['nome'] as String).toSet();
+      var nomeFinale = nome;
+      var n = 2;
+      while (esistenti.contains(nomeFinale)) {
+        nomeFinale = '$nome ($n)';
+        n++;
+      }
+      final id = await txn.insert('schede', {
+        'nome': nomeFinale,
+        'data_creazione': DateTime.now().toIso8601String(),
+      });
+      var ordine = 0;
+      for (final e in esercizi) {
+        await txn.insert('esercizi', {
+          'scheda_id': id,
+          'nome': e['nome'],
+          'ordine': ordine++,
+          'serie_totali': e['serie'],
+          'rep_target': e['rep'],
+          'riposo_secondi': e['riposo'],
+          'note': null,
+          'categoria': e['categoria'] ?? 'Altro',
+          'a_tempo': e['aTempo'] == true ? 1 : 0,
+          'superset': e['superset'] ?? 0,
+        });
+      }
+      return id;
+    });
   }
 
   /// Crea una copia della scheda con tutti i suoi esercizi (lo storico non si copia).
@@ -294,6 +344,7 @@ class DatabaseHelper {
     'sessioni',
     'peso_storico',
     'profilo',
+    'diario_alimenti',
   ];
 
   /// Tutte le righe di tutte le tabelle (per il backup).
@@ -314,6 +365,9 @@ class DatabaseHelper {
       for (final t in ['storico', 'sessioni', 'esercizi', 'schede', 'peso_storico', 'profilo']) {
         await txn.delete(t);
       }
+      // Il diario alimentare si sostituisce solo se il backup lo contiene
+      // (i backup più vecchi, o quelli sul cloud, non ce l'hanno).
+      if (dati.containsKey('diario_alimenti')) await txn.delete('diario_alimenti');
       for (final t in _tabelleBackup) {
         for (final riga in dati[t] ?? const <Map<String, dynamic>>[]) {
           await txn.insert(t, riga, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -516,6 +570,183 @@ class DatabaseHelper {
     );
     if (maps.isEmpty) return null;
     return StoricoEntry.fromMap(maps.first);
+  }
+
+  // ---- DIARIO ALIMENTARE ----
+
+  Future<void> insertVociDiario(List<Map<String, Object?>> voci) async {
+    final db = await database;
+    final batch = db.batch();
+    for (final v in voci) {
+      batch.insert('diario_alimenti', v);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Le voci di un giorno, nell'ordine in cui sono state inserite.
+  Future<List<Map<String, dynamic>>> getDiarioGiorno(DateTime giorno) async {
+    final db = await database;
+    final chiave = giorno.toIso8601String().substring(0, 10);
+    return await db.query(
+      'diario_alimenti',
+      where: 'substr(data, 1, 10) = ?',
+      whereArgs: [chiave],
+      orderBy: 'data ASC, id ASC',
+    );
+  }
+
+  Future<void> updateVoceDiario(int id, Map<String, Object?> valori) async {
+    final db = await database;
+    await db.update('diario_alimenti', valori, where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> deleteVoceDiario(int id) async {
+    final db = await database;
+    await db.delete('diario_alimenti', where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// Data dell'ultimo allenamento di ogni scheda (id scheda -> data).
+  Future<Map<int, DateTime>> getUltimaSessionePerScheda() async {
+    final db = await database;
+    final righe = await db.rawQuery('SELECT scheda_id AS id, MAX(data) AS ultima FROM sessioni GROUP BY scheda_id');
+    final mappa = <int, DateTime>{};
+    for (final r in righe) {
+      final d = DateTime.tryParse('${r['ultima']}');
+      if (d != null) mappa[r['id'] as int] = d;
+    }
+    return mappa;
+  }
+
+  /// Importa allenamenti letti da un CSV. Ogni nome di allenamento diventa una
+  /// scheda (se esiste già con lo stesso nome si riusa) e ogni esercizio viene
+  /// creato se manca. Le serie già presenti non vengono duplicate, quindi si
+  /// può importare lo stesso file più volte senza danni.
+  Future<RisultatoImport> importaAllenamenti(List<RigaAllenamento> righe) async {
+    final db = await database;
+    var schedeNuove = 0;
+    var eserciziNuovi = 0;
+    var importate = 0;
+    var doppioni = 0;
+
+    await db.transaction((txn) async {
+      final perScheda = <String, List<RigaAllenamento>>{};
+      for (final r in righe) {
+        perScheda.putIfAbsent(r.allenamento.isEmpty ? 'Importato' : r.allenamento, () => []).add(r);
+      }
+
+      for (final voce in perScheda.entries) {
+        final rs = voce.value;
+        final trovata = await txn.query('schede', where: 'nome = ?', whereArgs: [voce.key], limit: 1);
+        final int schedaId;
+        if (trovata.isNotEmpty) {
+          schedaId = trovata.first['id'] as int;
+        } else {
+          schedaId = await txn.insert('schede', {
+            'nome': voce.key,
+            'data_creazione': DateTime.now().toIso8601String(),
+          });
+          schedeNuove++;
+        }
+
+        final esistenti = await txn.query('esercizi', where: 'scheda_id = ?', whereArgs: [schedaId]);
+        final idPerNome = <String, int>{
+          for (final e in esistenti) (e['nome'] as String).toLowerCase(): e['id'] as int,
+        };
+        var ordine = esistenti.length;
+
+        // Gli esercizi nuovi, nell'ordine in cui compaiono nel file.
+        final perEsercizio = <String, List<RigaAllenamento>>{};
+        for (final r in rs) {
+          perEsercizio.putIfAbsent(r.esercizio, () => []).add(r);
+        }
+        for (final e in perEsercizio.entries) {
+          if (idPerNome.containsKey(e.key.toLowerCase())) continue;
+          final serieEs = e.value;
+          final aTempo = serieEs.first.aTempo;
+          final perGiorno = <int, int>{};
+          final frequenza = <int, int>{};
+          for (final r in serieEs) {
+            final k = r.data.millisecondsSinceEpoch;
+            perGiorno[k] = (perGiorno[k] ?? 0) + 1;
+            frequenza[r.rep] = (frequenza[r.rep] ?? 0) + 1;
+          }
+          var serieTotali = perGiorno.values.reduce((a, b) => a > b ? a : b);
+          if (serieTotali > 8) serieTotali = 8;
+          var repTarget = frequenza.entries.reduce((a, b) => b.value > a.value ? b : a).key;
+          if (repTarget < 1) repTarget = aTempo ? 30 : 10;
+          final id = await txn.insert('esercizi', {
+            'scheda_id': schedaId,
+            'nome': e.key,
+            'ordine': ordine++,
+            'serie_totali': serieTotali,
+            'rep_target': repTarget,
+            'riposo_secondi': 90,
+            'note': null,
+            'categoria': classificaEsercizio(e.key) ?? 'Altro',
+            'a_tempo': aTempo ? 1 : 0,
+            'superset': 0,
+          });
+          idPerNome[e.key.toLowerCase()] = id;
+          eserciziNuovi++;
+        }
+
+        // Serie già presenti, per non duplicarle.
+        final ids = idPerNome.values.toList();
+        final presenti = <String>{};
+        if (ids.isNotEmpty) {
+          final segnaposto = List.filled(ids.length, '?').join(',');
+          final gia = await txn.rawQuery(
+            'SELECT esercizio_id, serie_numero, carico, rep, data FROM storico WHERE esercizio_id IN ($segnaposto)',
+            ids,
+          );
+          for (final g in gia) {
+            presenti.add('${g['esercizio_id']}|${g['data']}|${g['serie_numero']}|${(g['carico'] as num).toDouble()}|${g['rep']}');
+          }
+        }
+
+        final batch = txn.batch();
+        final progressivo = <int, int>{};
+        final giorniConSessione = <String, DateTime>{};
+        for (final r in rs) {
+          final id = idPerNome[r.esercizio.toLowerCase()]!;
+          final k = r.data.millisecondsSinceEpoch;
+          final n = progressivo[k] ?? 0;
+          progressivo[k] = n + 1;
+          // Un secondo in più per ogni serie dello stesso allenamento: tiene l'ordine.
+          final quando = r.data.add(Duration(seconds: n)).toIso8601String();
+          final chiave = '$id|$quando|${r.serie}|${r.carico}|${r.rep}';
+          if (presenti.contains(chiave)) {
+            doppioni++;
+            continue;
+          }
+          presenti.add(chiave);
+          batch.insert('storico', {
+            'esercizio_id': id,
+            'serie_numero': r.serie,
+            'carico': r.carico,
+            'rep': r.rep,
+            'data': quando,
+          });
+          importate++;
+          final giorno = quando.substring(0, 10);
+          final precedente = giorniConSessione[giorno];
+          if (precedente == null || r.data.isBefore(precedente)) giorniConSessione[giorno] = r.data;
+        }
+        await batch.commit(noResult: true);
+
+        // Una presenza nel calendario per ogni giorno importato.
+        for (final g in giorniConSessione.entries) {
+          final c = await txn.rawQuery(
+            'SELECT COUNT(*) AS c FROM sessioni WHERE scheda_id = ? AND substr(data, 1, 10) = ?',
+            [schedaId, g.key],
+          );
+          if (((c.first['c'] as num?) ?? 0) == 0) {
+            await txn.insert('sessioni', {'scheda_id': schedaId, 'data': g.value.toIso8601String()});
+          }
+        }
+      }
+    });
+    return RisultatoImport(schedeNuove, eserciziNuovi, importate, doppioni);
   }
 
   /// Tutte le serie registrate, senza limite, con scheda, esercizio e categoria.

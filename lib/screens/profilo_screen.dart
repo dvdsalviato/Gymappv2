@@ -3,6 +3,8 @@ import 'account_screen.dart';
 import '../db/database_helper.dart';
 import '../theme/app_theme.dart';
 import '../widgets/campo_numero.dart';
+import '../widgets/card_fabbisogno.dart';
+import '../widgets/sezione_dati_backup.dart';
 import 'peso_screen.dart';
 
 class ProfiloScreen extends StatefulWidget {
@@ -24,6 +26,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
   double _altezzaIniziale = 175;
   double? _pesoAttuale;
   int _sezione = 0; // 0 = dati personali, 1 = peso
+  int _versione = 0; // cambia quando profilo o peso vengono aggiornati
   double _etaIniziale = 30;
 
   String? _sesso;
@@ -66,7 +69,10 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
   Future<void> _ricaricaPeso() async {
     final profilo = await DatabaseHelper.instance.getProfilo();
     if (!mounted) return;
-    setState(() => _pesoAttuale = (profilo?['peso_kg'] as num?)?.toDouble());
+    setState(() {
+      _pesoAttuale = (profilo?['peso_kg'] as num?)?.toDouble();
+      _versione++;
+    });
   }
 
   Future<void> _salva() async {
@@ -86,6 +92,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
         const SnackBar(content: Text('Profilo salvato')),
       );
       widget.onSalvato?.call();
+      setState(() => _versione++);
     }
   }
 
@@ -208,6 +215,8 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
           icon: const Icon(Icons.check),
           label: const Text('Salva profilo'),
         ),
+        const SizedBox(height: 20),
+        CardFabbisogno(versione: _versione),
         const SizedBox(height: 24),
       ],
     );
@@ -258,6 +267,8 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                             shape: const StadiumBorder(),
                           ),
                         ),
+                        const SizedBox(height: 14),
+                        const SezioneDatiBackup(),
                         const SizedBox(height: 22),
                         _sezioneDati(),
                       ],

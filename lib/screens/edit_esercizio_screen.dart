@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../data/catalogo_esercizi.dart';
 import '../data/classificatore.dart';
+import '../data/progressione.dart' show riposoConsigliato;
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
 import '../theme/app_theme.dart';
@@ -32,6 +33,8 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
   late String _categoria;
   // Vero se la categoria l'ha scelta la persona: allora non la cambio più da solo.
   late bool _categoriaManuale;
+  // Ultimo recupero proposto da solo: finché non lo cambi tu, si aggiorna col nome.
+  String _riposoAuto = '';
   late bool _aTempo;
   late TextEditingController _minCtrl;
   late TextEditingController _secCtrl;
@@ -54,7 +57,20 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
     final durata = (e != null && e.aTempo) ? e.repTarget : 60;
     _minCtrl = TextEditingController(text: (durata ~/ 60).toString());
     _secCtrl = TextEditingController(text: (durata % 60).toString());
-    _nomeCtrl.addListener(_suggerisciCategoria);
+    _nomeCtrl.addListener(() {
+      _suggerisciCategoria();
+      _suggerisciRiposo();
+    });
+  }
+
+  /// Per un esercizio nuovo propone il recupero in base al tipo di esercizio.
+  void _suggerisciRiposo() {
+    if (widget.esercizio != null) return;
+    if (_nomeCtrl.text.trim().length < 3) return;
+    if (_riposoCtrl.text.isNotEmpty && _riposoCtrl.text != _riposoAuto) return;
+    final r = riposoConsigliato(_nomeCtrl.text).toString();
+    _riposoAuto = r;
+    _riposoCtrl.text = r;
   }
 
   /// Mentre scrivi il nome, riconosce da solo la categoria (se non l'hai

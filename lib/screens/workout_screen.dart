@@ -3,11 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/progressione.dart';
+import '../data/superset.dart';
 import '../widgets/calcolatore_dischi.dart';
 import '../data/tempo.dart';
 import '../models/riepilogo.dart';
 import '../services/notifica_allenamento.dart';
-import '../amici/amici_servizio.dart';
 import '../amici/backup_servizio.dart';
 import '../services/orologio_sync.dart';
 import 'package:vibration/vibration.dart';
@@ -95,7 +95,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       }
     } else {
       GestoreSessione.inizioAllenamento = DateTime.now();
-      _coda = _raggruppaSuperset(widget.esercizi.map((e) => VoceCoda(e, 1)).toList());
+      _coda = raggruppaSuperset(widget.esercizi.map((e) => VoceCoda(e, 1)).toList());
     }
     _caricaUltimoStorico();
     if (_fase == FaseAllenamento.riposo) {
@@ -237,7 +237,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     _preparaProssima();
 
     // Nel superset il recupero c'è solo a fine giro, non tra un esercizio e l'altro.
-    final riposo = _transizioneSuperset ? 0 : _esercizioCorrente.riposoSecondi;
+    final riposo = transizioneSuperset(_coda) ? 0 : _esercizioCorrente.riposoSecondi;
     if (riposo <= 0) {
       _avanza();
       return;
@@ -333,7 +333,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     _repInseriti = secondiFatti;
     _preparaProssima();
 
-    final riposo = _transizioneSuperset ? 0 : _esercizioCorrente.riposoSecondi;
+    final riposo = transizioneSuperset(_coda) ? 0 : _esercizioCorrente.riposoSecondi;
     if (riposo <= 0) {
       _avanza();
       return;
@@ -478,56 +478,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     });
   }
 
-  /// Mette uno dopo l'altro gli esercizi dello stesso superset, nel punto in cui compare il primo.
-  List<VoceCoda> _raggruppaSuperset(List<VoceCoda> coda) {
-    final risultato = <VoceCoda>[];
-    final inseriti = <VoceCoda>{};
-    for (final v in coda) {
-      if (inseriti.contains(v)) continue;
-      risultato.add(v);
-      inseriti.add(v);
-      final id = v.esercizio.supersetId;
-      if (id == 0) continue;
-      for (final altro in coda) {
-        if (!inseriti.contains(altro) && altro.esercizio.supersetId == id) {
-          risultato.add(altro);
-          inseriti.add(altro);
-        }
-      }
-    }
-    return risultato;
-  }
-
-  /// Se l'esercizio in corso è in un superset e ci sono compagni ancora da fare,
-  /// restituisce quello che tocca dopo questa serie. Prima si completa il giro
-  /// (chi ha ancora la serie di questo giro da fare), poi si riparte dal primo.
-  VoceCoda? _compagnoSuperset() {
-    final corrente = _coda.first;
-    final id = corrente.esercizio.supersetId;
-    if (id == 0) return null;
-    final altri = _coda.skip(1).where((v) => v.esercizio.supersetId == id).toList();
-    if (altri.isEmpty) return null;
-    final inAttesa = altri.where((v) => v.numeroSerie <= corrente.numeroSerie).toList();
-    final candidati = inAttesa.isNotEmpty ? inAttesa : altri;
-    candidati.sort((a, b) {
-      final c = a.numeroSerie.compareTo(b.numeroSerie);
-      return c != 0 ? c : a.esercizio.ordine.compareTo(b.esercizio.ordine);
-    });
-    return candidati.first;
-  }
-
-  /// Vero se dopo questa serie si passa subito al compagno del superset, senza recupero.
-  bool get _transizioneSuperset {
-    final corrente = _coda.first;
-    final id = corrente.esercizio.supersetId;
-    if (id == 0) return false;
-    return _coda.skip(1).any((v) => v.esercizio.supersetId == id && v.numeroSerie <= corrente.numeroSerie);
-  }
-
   void _preparaProssima() {
     _sceltaRiposo = 1;
     final voceCorrente = _coda.first;
-    final compagno = _compagnoSuperset();
+    final compagno = compagnoSuperset(_coda);
     final ultimaSerieEsercizio = voceCorrente.numeroSerie >= voceCorrente.esercizio.serieTotali;
 
     if (compagno != null) {
@@ -569,7 +523,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   bool get _puoiScegliereProssimo =>
       _coda.length > 2 &&
       _coda.first.numeroSerie >= _coda.first.esercizio.serieTotali &&
-      _compagnoSuperset() == null;
+      compagnoSuperset(_coda) == null;
 
   /// Frecce durante il recupero: cambiano l'esercizio che verrà dopo (utile se la macchina è occupata).
   void _cambiaProssimo(int delta) {
@@ -594,7 +548,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     final esercizioPrecedente = voceCorrente.esercizio;
     final ultimaSerieEsercizio = voceCorrente.numeroSerie >= voceCorrente.esercizio.serieTotali;
     // Da calcolare prima di toccare la coda: chi tocca dopo nel superset.
-    final compagno = _compagnoSuperset();
+    final compagno = compagnoSuperset(_coda);
 
     // Se durante il riposo hai scelto un altro esercizio, lo metto subito dopo quello appena finito.
     if (compagno == null && ultimaSerieEsercizio && _sceltaRiposo > 1 && _sceltaRiposo < _coda.length) {
@@ -603,17 +557,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     }
     _sceltaRiposo = 1;
 
-    if (ultimaSerieEsercizio) {
-      _coda.removeAt(0);
-    } else {
-      voceCorrente.numeroSerie++;
-    }
-
-    // Superset: il compagno passa in testa, l'esercizio appena fatto resta subito dietro.
-    if (compagno != null) {
-      _coda.remove(compagno);
-      _coda.insert(0, compagno);
-    }
+    // Esce l'esercizio se era l'ultima serie, altrimenti passa alla successiva;
+    // nel superset il compagno passa in testa.
+    avanzaCoda(_coda, compagno);
 
     if (_coda.isEmpty) {
       if (!_sessioneRegistrata) {
@@ -621,7 +567,6 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         await DatabaseHelper.instance.insertSessione(widget.esercizi.first.schedaId);
       }
       await _caricaRiepilogo();
-      AmiciServizio.istanza.sincronizzaInBackground();
       BackupServizio.istanza.backupAutomatico();
       if (!mounted) return;
       setState(() => _fase = FaseAllenamento.completato);

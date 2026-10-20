@@ -61,6 +61,9 @@ int _distanza(String a, String b) {
   return prec[m];
 }
 
+/// Versione pubblica: vero se [voce] è [chiave] o una sua forma scritta con qualche errore.
+bool parolaSimile(String voce, String chiave) => _paroleSimili(voce, chiave);
+
 /// Parole fino a 5 lettere devono essere identiche (altrimenti "sacco" e
 /// "stacco" o "corsa" e "corda" si confonderebbero); poi si tollera 1 errore,
 /// e 2 dalle parole di 9 lettere in su.

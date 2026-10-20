@@ -75,6 +75,9 @@ workflows:
         script: flutter pub get
       - name: Controllo errori del codice
         script: flutter analyze lib --no-fatal-infos --no-fatal-warnings
+      - name: Test automatici
+        script: flutter test test/logica
+        ignore_failure: true
       - name: Icona app
         script: dart run flutter_launcher_icons
       - name: Build APK

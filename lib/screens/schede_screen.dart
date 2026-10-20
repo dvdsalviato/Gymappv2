@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/dialogo_azioni.dart';
 import 'crea_scheda_ai_screen.dart';
+import 'programmi_screen.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
@@ -23,6 +24,7 @@ class SchedeScreen extends StatefulWidget {
 class _SchedeScreenState extends State<SchedeScreen> {
   List<Scheda> _schede = [];
   Map<int, int> _conteggioEsercizi = {};
+  Map<int, DateTime> _ultime = {};
   bool _loading = true;
 
   @override
@@ -40,9 +42,12 @@ class _SchedeScreenState extends State<SchedeScreen> {
         conteggi[s.id!] = await DatabaseHelper.instance.contaEsercizi(s.id!);
       }
     }
+    final ultime = await DatabaseHelper.instance.getUltimaSessionePerScheda();
+    if (!mounted) return;
     setState(() {
       _schede = lista;
       _conteggioEsercizi = conteggi;
+      _ultime = ultime;
       _loading = false;
     });
   }
@@ -95,6 +100,14 @@ class _SchedeScreenState extends State<SchedeScreen> {
     if (conferma != true) return;
     await DatabaseHelper.instance.deleteScheda(scheda.id!);
     _carica();
+  }
+
+  Future<void> _apriProgrammi() async {
+    final aggiunto = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const ProgrammiScreen()),
+    );
+    if (aggiunto == true) await _carica();
   }
 
   /// Tocco sulla scheda: si apre il dettaglio, da cui si può modificare,
@@ -352,6 +365,40 @@ class _SchedeScreenState extends State<SchedeScreen> {
     );
   }
 
+  /// Primo avvio (nessuna scheda): spiega da dove partire.
+  Widget _benvenuto() {
+    return Center(
+      child: SingleChildScrollView(
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(28)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.fitness_center, color: AppColors.accento, size: 36),
+              const SizedBox(height: 12),
+              Text('Da dove cominciare?', style: GoogleFonts.oswald(fontSize: 26, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              Text(
+                'Scegli un programma pronto adatto a te (da 2 a 5 giorni a settimana, in palestra o a casa): '
+                'lo trovi tra le tue schede e puoi modificarlo come vuoi. '
+                'Oppure crea la tua prima scheda da zero, o importane una da QR.',
+                style: TextStyle(color: Colors.grey.shade500, height: 1.4),
+              ),
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: _apriProgrammi,
+                icon: const Icon(Icons.auto_stories_outlined),
+                label: const Text('Scegli un programma'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -378,13 +425,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : _schede.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Nessuna scheda ancora.\nCreane una qui sotto o importane una da QR.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                        )
+                      ? _benvenuto()
                       : ListView.separated(
                           itemCount: _schede.length,
                           separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -394,6 +435,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
                             return _CardScheda(
                               nome: s.nome,
                               numeroEsercizi: n,
+                              ultimo: s.id == null ? null : _ultime[s.id!],
                               onInizia: () => _iniziaAllenamento(s),
                               onApri: () => _apriDettaglio(s),
                             );
@@ -407,16 +449,36 @@ class _SchedeScreenState extends State<SchedeScreen> {
               label: const Text('Nuova scheda'),
             ),
             const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: _creaConAi,
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('Crea scheda con AI'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                shape: const StadiumBorder(),
-                foregroundColor: AppColors.accento,
-                side: BorderSide(color: AppColors.accento.withOpacity(0.7)),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _apriProgrammi,
+                    icon: const Icon(Icons.auto_stories_outlined),
+                    label: const Text('Programmi'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      shape: const StadiumBorder(),
+                      foregroundColor: AppColors.accento,
+                      side: BorderSide(color: AppColors.accento.withOpacity(0.7)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _creaConAi,
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text('Con AI'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(52),
+                      shape: const StadiumBorder(),
+                      foregroundColor: AppColors.accento,
+                      side: BorderSide(color: AppColors.accento.withOpacity(0.7)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -425,17 +487,31 @@ class _SchedeScreenState extends State<SchedeScreen> {
   }
 }
 
+/// "oggi", "ieri", "3 giorni fa"... per l'ultimo allenamento di una scheda.
+String _quandoTesto(DateTime? d) {
+  if (d == null) return 'mai fatta';
+  final oggi = DateTime.now();
+  final giorni = DateTime(oggi.year, oggi.month, oggi.day).difference(DateTime(d.year, d.month, d.day)).inDays;
+  if (giorni <= 0) return 'fatta oggi';
+  if (giorni == 1) return 'fatta ieri';
+  if (giorni < 14) return 'fatta $giorni giorni fa';
+  if (giorni < 60) return 'fatta ${giorni ~/ 7} settimane fa';
+  return 'fatta ${giorni ~/ 30} mesi fa';
+}
+
 /// Card compatta: tasto play a sinistra, nome e numero di esercizi accanto.
 /// Il tocco sulla card apre il dettaglio della scheda.
 class _CardScheda extends StatelessWidget {
   final String nome;
   final int numeroEsercizi;
+  final DateTime? ultimo;
   final VoidCallback onInizia;
   final VoidCallback onApri;
 
   const _CardScheda({
     required this.nome,
     required this.numeroEsercizi,
+    required this.ultimo,
     required this.onInizia,
     required this.onApri,
   });
@@ -479,7 +555,7 @@ class _CardScheda extends StatelessWidget {
                       style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.w700, height: 1.15),
                     ),
                     Text(
-                      numeroEsercizi == 1 ? '1 esercizio' : '$numeroEsercizi esercizi',
+                      '${numeroEsercizi == 1 ? '1 esercizio' : '$numeroEsercizi esercizi'} · ${_quandoTesto(ultimo)}',
                       style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                   ],

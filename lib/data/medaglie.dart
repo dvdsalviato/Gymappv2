@@ -68,12 +68,10 @@ const List<Medaglia> medaglie = [
   Medaglia('schede5', 'Programmatore', 'Crea 5 schede', Icons.assignment, 5, 'schede', 'argento'),
   Medaglia('gambe10', 'Giorno gambe', '10 allenamenti con le gambe', Icons.directions_run, 10, 'gruppo:gambe', 'bronzo'),
   Medaglia('gambe30', 'Mai saltare il leg day', '30 allenamenti con le gambe', Icons.directions_run, 30, 'gruppo:gambe', 'argento'),
-  // Corpo e amici
+  // Corpo
   Medaglia('peso1', 'Sulla bilancia', 'Registra il tuo primo peso', Icons.monitor_weight, 1, 'pesi', 'bronzo'),
   Medaglia('peso10', 'Controllo costante', '10 pesi registrati', Icons.monitor_weight, 10, 'pesi', 'argento'),
   Medaglia('peso30', 'Occhio alla bilancia', '30 pesi registrati', Icons.monitor_weight, 30, 'pesi', 'oro'),
-  Medaglia('amico1', 'In compagnia', 'Aggiungi il tuo primo amico', Icons.group, 1, 'amici', 'bronzo'),
-  Medaglia('amici5', 'Squadra', '5 amici in palestra', Icons.groups, 5, 'amici', 'argento'),
 ];
 
 int valoreMedaglia(Medaglia m, StatisticheUtente s) {
@@ -99,8 +97,6 @@ int valoreMedaglia(Medaglia m, StatisticheUtente s) {
       return s.serieATempo;
     case 'muscoli':
       return s.muscoliSettimana;
-    case 'amici':
-      return s.amici;
     case 'varieta':
       return s.eserciziDiversi;
     case 'schede':

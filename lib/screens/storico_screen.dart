@@ -44,6 +44,7 @@ class _StoricoScreenState extends State<StoricoScreen> {
   Map<String, List<_Esercizio>> _perGruppo = {};
   Map<String, List<Map<String, dynamic>>> _perGiorno = {};
   List<String> _giorni = [];
+  Map<String, int> _serieSettimana = {};
 
   @override
   void initState() {
@@ -61,6 +62,8 @@ class _StoricoScreenState extends State<StoricoScreen> {
       return categoriePerNome.putIfAbsent(nome, () => classificaEsercizio(nome) ?? 'Altro');
     }
 
+    final limiteSettimana = DateTime.now().subtract(const Duration(days: 7));
+    final settimana = <String, int>{};
     final scheda = <String, Map<String, List<Map<String, dynamic>>>>{};
     final gruppo = <String, Map<String, List<Map<String, dynamic>>>>{};
     final giorno = <String, List<Map<String, dynamic>>>{};
@@ -74,6 +77,11 @@ class _StoricoScreenState extends State<StoricoScreen> {
           .putIfAbsent(nome.trim().toLowerCase(), () => [])
           .add(v);
       giorno.putIfAbsent(giornoDi(v), () => []).add(v);
+      final quando = DateTime.tryParse(v['data'] as String);
+      if (quando != null && quando.isAfter(limiteSettimana)) {
+        final cat = categoriaDi(nome, v['categoria'] as String?);
+        settimana[cat] = (settimana[cat] ?? 0) + 1;
+      }
     }
 
     List<_Esercizio> converti(Map<String, List<Map<String, dynamic>>> m) {
@@ -99,6 +107,7 @@ class _StoricoScreenState extends State<StoricoScreen> {
       _perScheda = perScheda;
       _perGruppo = perGruppo;
       _perGiorno = giorno;
+      _serieSettimana = settimana;
       _giorni = giorno.keys.toList()..sort((a, b) => b.compareTo(a));
       _loading = false;
     });
@@ -213,13 +222,85 @@ class _StoricoScreenState extends State<StoricoScreen> {
     );
   }
 
-  Widget _vistaRaggruppata(Map<String, List<_Esercizio>> sezioni) {
+  /// Quante serie hai fatto negli ultimi 7 giorni per ogni gruppo muscolare.
+  Widget _cardVolume() {
+    const gruppi = ['Petto', 'Schiena', 'Gambe', 'Spalle', 'Bicipiti', 'Tricipiti', 'Core'];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      decoration: BoxDecoration(color: coloreCard(context), borderRadius: BorderRadius.circular(20)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('QUESTA SETTIMANA', style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1.3, fontSize: 12)),
+          const SizedBox(height: 2),
+          Text('Serie negli ultimi 7 giorni, per gruppo', style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+          const SizedBox(height: 10),
+          for (final g in gruppi) _rigaVolume(g, _serieSettimana[g] ?? 0),
+          const SizedBox(height: 6),
+          Text(
+            'La fascia verde (10-20 serie) è solo indicativa, per chi punta ad aumentare la massa muscolare: non è una regola.',
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 11),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _rigaVolume(String gruppo, int n) {
+    final colore = n == 0
+        ? Colors.grey
+        : (n < 10 ? Colors.orange.shade400 : (n <= 20 ? Colors.green.shade400 : Colors.amber.shade700));
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(width: 74, child: Text(gruppo, style: const TextStyle(fontSize: 13))),
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, c) {
+                const massimo = 30.0;
+                final larghezza = c.maxWidth;
+                return Stack(
+                  children: [
+                    Container(
+                      height: 10,
+                      decoration: BoxDecoration(color: coloreChip(context), borderRadius: BorderRadius.circular(5)),
+                    ),
+                    Positioned(
+                      left: larghezza * 10 / massimo,
+                      width: larghezza * 10 / massimo,
+                      child: Container(height: 10, color: Colors.green.withOpacity(0.25)),
+                    ),
+                    Container(
+                      height: 10,
+                      width: larghezza * (n > massimo ? 1.0 : n / massimo),
+                      decoration: BoxDecoration(color: colore, borderRadius: BorderRadius.circular(5)),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 10),
+          SizedBox(width: 26, child: Text('$n', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.w800))),
+        ],
+      ),
+    );
+  }
+
+  Widget _vistaRaggruppata(Map<String, List<_Esercizio>> sezioni, {bool conVolume = false}) {
     final voci = sezioni.entries.toList();
+    final extra = conVolume ? 1 : 0;
     return RefreshIndicator(
       onRefresh: () => _carica(silenzioso: true),
       child: ListView.builder(
-        itemCount: voci.length,
-        itemBuilder: (context, i) => _sezione(voci[i].key, voci[i].value, i == 0),
+        itemCount: voci.length + extra,
+        itemBuilder: (context, i) {
+          if (conVolume && i == 0) return _cardVolume();
+          final k = i - extra;
+          return _sezione(voci[k].key, voci[k].value, k == 0);
+        },
       ),
     );
   }
@@ -317,7 +398,7 @@ class _StoricoScreenState extends State<StoricoScreen> {
     } else if (_vista == 0) {
       corpo = _vistaRaggruppata(_perScheda);
     } else if (_vista == 1) {
-      corpo = _vistaRaggruppata(_perGruppo);
+      corpo = _vistaRaggruppata(_perGruppo, conVolume: true);
     } else {
       corpo = _vistaPerGiorno();
     }

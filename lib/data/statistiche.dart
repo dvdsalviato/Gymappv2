@@ -80,7 +80,6 @@ class StatisticheUtente {
   final int nottambulo;
   final int serieATempo;
   final int muscoliSettimana;
-  final int amici;
   final int eserciziDiversi;
   final int schede;
   final int maxMese;
@@ -101,7 +100,6 @@ class StatisticheUtente {
     this.nottambulo = 0,
     this.serieATempo = 0,
     this.muscoliSettimana = 0,
-    this.amici = 0,
     required this.presenze,
     required this.allenamenti,
     required this.serie,
@@ -173,7 +171,6 @@ Future<StatisticheUtente> caricaStatistiche() async {
     nottambulo: sera,
     serieATempo: aTempo,
     muscoliSettimana: muscoliSet.length,
-    amici: prefs.getInt('amici_conteggio') ?? 0,
     presenze: presenze,
     allenamenti: presenze.length,
     serie: serie,

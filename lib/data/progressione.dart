@@ -44,6 +44,15 @@ double incrementoCarico(double carico, String nome) {
   return math.max(1.0, _arrotonda(carico * 0.025, 0.5));
 }
 
+/// Recupero consigliato in secondi: 3 minuti per i fondamentali delle gambe,
+/// 2 minuti per gli altri multiarticolari, 75 secondi per gli isolamenti.
+int riposoConsigliato(String nome) {
+  final tipo = _tipoCarico(nome);
+  if (tipo == _TipoCarico.compostoGambe) return 180;
+  if (tipo == _TipoCarico.composto) return 120;
+  return 75;
+}
+
 /// Carico ridotto di circa il 10%, sempre un valore realmente caricabile.
 double _caricoRidotto(double carico, String nome) {
   final passo = _tipoCarico(nome) == _TipoCarico.isolamento ? 0.5 : 2.5;

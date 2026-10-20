@@ -4,10 +4,10 @@ import '../state/sessione_allenamento.dart';
 import '../widgets/dialogo_azioni.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_controller.dart';
-import 'amici_screen.dart';
 import 'home_screen.dart';
 import 'profilo_screen.dart';
 import 'schede_screen.dart';
+import 'alimentazione_screen.dart';
 import 'storico_screen.dart';
 import 'workout_screen.dart';
 
@@ -157,7 +157,7 @@ class _MainScreenState extends State<MainScreen> {
       case 2:
         return const StoricoScreen();
       case 3:
-        return const AmiciScreen();
+        return const AlimentazioneScreen();
       default:
         return ProfiloScreen(incorporata: true, onSalvato: _aggiornaNome);
     }
@@ -175,7 +175,7 @@ class _MainScreenState extends State<MainScreen> {
       (Icons.home_outlined, Icons.home, 'Home'),
       (Icons.inventory_2_outlined, Icons.inventory_2, 'Schede'),
       (Icons.bar_chart_outlined, Icons.bar_chart, 'Storico'),
-      (Icons.group_outlined, Icons.group, 'Amici'),
+      (Icons.restaurant_outlined, Icons.restaurant, 'Cibo'),
       (Icons.person_outline, Icons.person, 'Profilo'),
     ];
     return SafeArea(

@@ -101,7 +101,7 @@ class _AccountScreenState extends State<AccountScreen> {
       final ripristinato = await _account.accedi();
       await _carica();
       if (ripristinato) {
-        _avviso('Account già usato: ho recuperato il tuo profilo amici.');
+        _avviso('Account già usato: ho recuperato il tuo profilo.');
       } else {
         _avviso('Account Google collegato.');
       }
@@ -114,7 +114,7 @@ class _AccountScreenState extends State<AccountScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Uscire dall\'account?'),
         content: const Text(
-          'I dati su questo telefono restano. Potrai riaccedere con lo stesso account Google per ritrovare amici e backup.',
+          'I dati su questo telefono restano. Potrai riaccedere con lo stesso account Google per ritrovare il backup.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
@@ -206,12 +206,12 @@ class _AccountScreenState extends State<AccountScreen> {
             Text('Accedi con Google', style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             Text(
-              'Così non perdi amici, schede e storico se cambi telefono o reinstalli l\'app.',
+              'Così non perdi schede e storico se cambi telefono o reinstalli l\'app.',
               style: TextStyle(color: Colors.grey.shade400, height: 1.3),
             ),
             const SizedBox(height: 8),
             Text(
-              'Se questo account Google è già stato usato su un altro telefono, il profilo amici di questo telefono verrà sostituito da quello dell\'account.',
+              'Se questo account Google è già stato usato su un altro telefono, il profilo di questo telefono verrà sostituito da quello dell\'account.',
               style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.3),
             ),
             const SizedBox(height: 14),
