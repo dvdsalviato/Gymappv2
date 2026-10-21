@@ -9,6 +9,41 @@ workflows:
     scripts:
       - name: Genera i file Android
         script: flutter create --platforms=android .
+      - name: Librerie compilate con Android 36
+        script: |
+          # Alcuni pacchetti (file_picker, share_plus...) sono compilati con un Android più vecchio
+          # di quello richiesto dalle librerie nuove: si alza la versione per tutte le librerie.
+          if [ -f android/build.gradle.kts ]; then
+            cat >> android/build.gradle.kts <<'KTS'
+
+          subprojects {
+              fun alzaCompileSdk() {
+                  try {
+                      val android = extensions.findByName("android")
+                      if (android != null && plugins.hasPlugin("com.android.library")) {
+                          android.javaClass.getMethod("compileSdkVersion", Int::class.java).invoke(android, 36)
+                      }
+                  } catch (e: Exception) {
+                      println("compileSdk non modificato per " + name + ": " + e)
+                  }
+              }
+              if (state.executed) alzaCompileSdk() else afterEvaluate { alzaCompileSdk() }
+          }
+          KTS
+          else
+            cat >> android/build.gradle <<'GRADLE'
+
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.plugins.hasPlugin("com.android.library")) {
+                      project.android { compileSdkVersion 36 }
+                  }
+              }
+          }
+          GRADLE
+          fi
+          echo "--- fine di android/build.gradle* ---"
+          tail -n 22 android/build.gradle.kts 2>/dev/null || tail -n 12 android/build.gradle
       - name: Rinomina app in Gymapp
         script: perl -pi -e 's/android:label="[^"]*"/android:label="Gymapp"/' android/app/src/main/AndroidManifest.xml
       - name: Permesso internet
@@ -113,6 +148,41 @@ workflows:
     scripts:
       - name: Genera i file Android
         script: flutter create --platforms=android .
+      - name: Librerie compilate con Android 36
+        script: |
+          # Alcuni pacchetti (file_picker, share_plus...) sono compilati con un Android più vecchio
+          # di quello richiesto dalle librerie nuove: si alza la versione per tutte le librerie.
+          if [ -f android/build.gradle.kts ]; then
+            cat >> android/build.gradle.kts <<'KTS'
+
+          subprojects {
+              fun alzaCompileSdk() {
+                  try {
+                      val android = extensions.findByName("android")
+                      if (android != null && plugins.hasPlugin("com.android.library")) {
+                          android.javaClass.getMethod("compileSdkVersion", Int::class.java).invoke(android, 36)
+                      }
+                  } catch (e: Exception) {
+                      println("compileSdk non modificato per " + name + ": " + e)
+                  }
+              }
+              if (state.executed) alzaCompileSdk() else afterEvaluate { alzaCompileSdk() }
+          }
+          KTS
+          else
+            cat >> android/build.gradle <<'GRADLE'
+
+          subprojects {
+              afterEvaluate { project ->
+                  if (project.plugins.hasPlugin("com.android.library")) {
+                      project.android { compileSdkVersion 36 }
+                  }
+              }
+          }
+          GRADLE
+          fi
+          echo "--- fine di android/build.gradle* ---"
+          tail -n 22 android/build.gradle.kts 2>/dev/null || tail -n 12 android/build.gradle
       - name: Rinomina app in Gymapp
         script: perl -pi -e 's/android:label="[^"]*"/android:label="Gymapp Orologio"/' android/app/src/main/AndroidManifest.xml
       - name: Manifest per Wear OS
