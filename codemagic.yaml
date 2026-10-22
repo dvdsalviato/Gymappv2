@@ -73,12 +73,6 @@ workflows:
           grep -q 'flutterlocalnotifications.ForegroundService' "$MANIFEST" || \
           perl -0777 -pi -e 's{</application>}{    <service android:name="com.dexterous.flutterlocalnotifications.ForegroundService" android:exported="false" android:stopWithTask="true" android:foregroundServiceType="specialUse">\n            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Cronometro di allenamento"/>\n        </service>\n        <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />\n    </application>}' "$MANIFEST"
           grep -n "ForegroundService\|FOREGROUND_SERVICE\|ActionBroadcastReceiver" "$MANIFEST"
-      - name: Grafica compatibile (Impeller disattivato)
-        script: |
-          MANIFEST=android/app/src/main/AndroidManifest.xml
-          grep -q 'EnableImpeller' "$MANIFEST" || \
-          perl -0777 -pi -e 's{</application>}{    <meta-data android:name="io.flutter.embedding.android.EnableImpeller" android:value="false"/>\n    </application>}' "$MANIFEST"
-          grep -n "EnableImpeller" "$MANIFEST"
       - name: Icona e risorse della notifica
         script: |
           RES=android/app/src/main/res
@@ -122,7 +116,7 @@ workflows:
       - name: Icona app
         script: dart run flutter_launcher_icons
       - name: Build APK
-        script: flutter build apk --release
+        script: flutter build apk --release --no-shrink
       - name: Diagnostica firma e pacchetto
         script: |
           echo "=== Keystore usato da Codemagic ==="
@@ -228,6 +222,6 @@ workflows:
       - name: Icona app
         script: dart run flutter_launcher_icons
       - name: Build APK orologio
-        script: flutter build apk --release --target lib/main_wear.dart
+        script: flutter build apk --release --no-shrink --target lib/main_wear.dart
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
