@@ -108,6 +108,9 @@ workflows:
           grep -n "esugar\|VERSION_17\|jvmTarget" "$FILE"
       - name: Dipendenze
         script: flutter pub get
+      - name: Versioni delle librerie (controllo)
+        script: |
+          awk '/^  (shared_preferences_android|shared_preferences|jni):/{n=$1} n && /version:/{print n, $2; n=""}' pubspec.lock
       - name: Controllo errori del codice
         script: flutter analyze lib --no-fatal-infos --no-fatal-warnings
       - name: Test automatici
@@ -116,7 +119,7 @@ workflows:
       - name: Icona app
         script: dart run flutter_launcher_icons
       - name: Build APK
-        script: flutter build apk --release --no-shrink
+        script: flutter build apk --release
       - name: Diagnostica firma e pacchetto
         script: |
           echo "=== Keystore usato da Codemagic ==="
@@ -137,6 +140,7 @@ workflows:
           true
     artifacts:
       - build/app/outputs/flutter-apk/*.apk
+      - pubspec.lock
 
   wear-workflow:
     name: Wear OS Build
@@ -219,9 +223,12 @@ workflows:
           grep -n "esugar\|VERSION_17\|jvmTarget" "$FILE"
       - name: Dipendenze
         script: flutter pub get
+      - name: Versioni delle librerie (controllo)
+        script: |
+          awk '/^  (shared_preferences_android|shared_preferences|jni):/{n=$1} n && /version:/{print n, $2; n=""}' pubspec.lock
       - name: Icona app
         script: dart run flutter_launcher_icons
       - name: Build APK orologio
-        script: flutter build apk --release --no-shrink --target lib/main_wear.dart
+        script: flutter build apk --release --target lib/main_wear.dart
     artifacts:
       - build/app/outputs/flutter-apk/*.apk

@@ -27,6 +27,12 @@ dependencies:
   share_plus: ^10.0.0
   file_picker: ^8.0.0
 
+# La versione 2.5.0 di shared_preferences_android usa JNI e va in errore all'avvio nelle build
+# "release" (flutter/flutter#194649). Si resta sull'ultima versione precedente, che usa gli
+# stessi dati salvati. Da togliere quando uscirà una versione corretta.
+dependency_overrides:
+  shared_preferences_android: '>=2.4.28 <2.5.0'
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
