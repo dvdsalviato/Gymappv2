@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/progressione.dart';
 import '../data/superset.dart';
-import '../widgets/calcolatore_dischi.dart';
 import '../data/tempo.dart';
 import '../models/riepilogo.dart';
 import '../services/notifica_allenamento.dart';
@@ -36,7 +35,7 @@ class WorkoutScreen extends StatefulWidget {
   State<WorkoutScreen> createState() => _WorkoutScreenState();
 }
 
-class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProviderStateMixin {
+class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late List<VoceCoda> _coda;
   FaseAllenamento _fase = FaseAllenamento.pronto;
   bool _sessioneRegistrata = false;
@@ -59,6 +58,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   // sull'ora esatta di scadenza, che funziona anche a schermo spento.
   late final AnimationController _riposoCtrl;
   Timer? _timerFine;
+  // Controllo di sicurezza: se lo scatto del timer arriva in ritardo, la fine si rileva comunque dall'orologio.
+  Timer? _vigilanza;
   DateTime? _fineRiposo;
   int _ultimoSecondoMostrato = -1;
   bool _dialogPausa = false;
@@ -85,6 +86,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     NotificaAllenamento.onAzione = _gestisciAzione;
     OrologioSync.onMessaggio = _gestisciMessaggioOrologio;
     OrologioSync.avvia();
+    WidgetsBinding.instance.addObserver(this);
+    _vigilanza = Timer.periodic(const Duration(milliseconds: 500), (_) => _controllaFineRiposo());
     if (widget.ripresaDa != null) {
       GestoreSessione.inizioAllenamento ??= DateTime.now();
       _coda = List.of(widget.ripresaDa!.coda);
@@ -112,7 +115,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState stato) {
+    // Tornando nell'app dopo un po' il recupero può essere già finito: si va avanti subito.
+    if (stato == AppLifecycleState.resumed) _controllaFineRiposo();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _vigilanza?.cancel();
     NotificaAllenamento.onAzione = null;
     OrologioSync.onMessaggio = null;
     OrologioSync.invia({'attivo': false});
@@ -258,7 +269,20 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     return ms <= 0 ? 0.0 : ms / 1000.0;
   }
 
+  /// Il countdown segue l'orologio, ma lo scatto del timer può arrivare in
+  /// ritardo (app in secondo piano, schermo spento). Qui si confronta l'ora
+  /// con la fine prevista e, se è passata, si chiude il recupero subito.
+  void _controllaFineRiposo() {
+    final fine = _fineRiposo;
+    if (fine == null || !mounted) return;
+    if (DateTime.now().isBefore(fine)) return;
+    if (_fase == FaseAllenamento.riposo || (_fase == FaseAllenamento.inCorso && _esercizioCorrente.aTempo)) {
+      _fineRiposoTerminato();
+    }
+  }
+
   void _onTickRiposo() {
+    _controllaFineRiposo();
     final s = _secondiResiduiPrecisi().ceil();
     if (s != _ultimoSecondoMostrato) {
       _ultimoSecondoMostrato = s;
@@ -1512,16 +1536,7 @@ class _RegistraSerieSheetState extends State<_RegistraSerieSheet> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => mostraCalcolatoreDischi(context, _caricoKey.currentState?.valore ?? 0),
-              icon: const Icon(Icons.calculate_outlined, size: 20),
-              label: const Text('Dischi per lato'),
-            ),
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 28),
           FilledButton.icon(
             onPressed: _conferma,
             icon: const Icon(Icons.check),
