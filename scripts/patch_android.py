@@ -93,19 +93,25 @@ if kts:
     testo = sostituisci_uno(
         testo,
         r"^android \{",
-        '''val keyProps = java.util.Properties()
-val keyPropsFile = rootProject.file("key.properties")
-if (keyPropsFile.exists()) {
-    keyProps.load(java.io.FileInputStream(keyPropsFile))
+        '''// key.properties (scritto dal workflow) letto riga per riga, senza import:
+// nel DSL Kotlin "java." punta all'estensione Gradle e non al pacchetto Java.
+val keyProps: Map<String, String> = rootProject.file("key.properties").let { f ->
+    if (f.exists()) {
+        f.readLines()
+            .filter { it.contains("=") }
+            .associate { it.substringBefore("=").trim() to it.substringAfter("=").trim() }
+    } else {
+        emptyMap()
+    }
 }
 
 android {
     signingConfigs {
         create("release") {
-            storeFile = file(keyProps.getProperty("storeFile") ?: "upload-keystore.jks")
-            storePassword = keyProps.getProperty("storePassword")
-            keyAlias = keyProps.getProperty("keyAlias")
-            keyPassword = keyProps.getProperty("keyPassword")
+            storeFile = file(keyProps["storeFile"] ?: "upload-keystore.jks")
+            storePassword = keyProps["storePassword"]
+            keyAlias = keyProps["keyAlias"]
+            keyPassword = keyProps["keyPassword"]
         }
     }
 
