@@ -59,6 +59,12 @@ class DatabaseHelper {
         if (!haSuperset) {
           await db.execute('ALTER TABLE esercizi ADD COLUMN superset INTEGER NOT NULL DEFAULT 0');
         }
+        // Ordine personalizzato delle schede: colonna aggiunta senza toccare i dati
+        // (0 per quelle esistenti, che restano nell'ordine di creazione).
+        final colonneSchede = await db.rawQuery('PRAGMA table_info(schede)');
+        if (!colonneSchede.any((c) => c['name'] == 'ordine')) {
+          await db.execute('ALTER TABLE schede ADD COLUMN ordine INTEGER NOT NULL DEFAULT 0');
+        }
       },
       onCreate: _onCreate,
       // Nessuna cancellazione: le modifiche allo schema vanno fatte in modo
@@ -72,7 +78,8 @@ class DatabaseHelper {
       CREATE TABLE schede (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL,
-        data_creazione TEXT NOT NULL
+        data_creazione TEXT NOT NULL,
+        ordine INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -124,10 +131,33 @@ class DatabaseHelper {
 
   // ---- SCHEDE ----
 
+  /// Posizione per una scheda nuova: in fondo alla lista.
+  Future<int> _prossimoOrdine(DatabaseExecutor db) async {
+    final r = await db.rawQuery('SELECT COALESCE(MAX(ordine), 0) + 1 AS n FROM schede');
+    return (r.first['n'] as num).toInt();
+  }
+
   Future<int> insertScheda(Scheda scheda) async {
     final db = await database;
     final map = scheda.toMap()..remove('id');
+    map['ordine'] = await _prossimoOrdine(db);
     return await db.insert('schede', map);
+  }
+
+  /// Salva il nuovo ordine delle schede (lista di id dalla prima all'ultima).
+  Future<void> aggiornaOrdineSchede(List<int> ids) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (var i = 0; i < ids.length; i++) {
+        await txn.update('schede', {'ordine': i + 1}, where: 'id = ?', whereArgs: [ids[i]]);
+      }
+    });
+  }
+
+  /// Cambia solo il nome di una scheda.
+  Future<int> rinominaScheda(int id, String nome) async {
+    final db = await database;
+    return await db.update('schede', {'nome': nome}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<int> updateScheda(Scheda scheda) async {
@@ -150,6 +180,7 @@ class DatabaseHelper {
       final id = await txn.insert('schede', {
         'nome': nomeFinale,
         'data_creazione': DateTime.now().toIso8601String(),
+        'ordine': await _prossimoOrdine(txn),
       });
       var ordine = 0;
       for (final e in esercizi) {
@@ -188,7 +219,8 @@ class DatabaseHelper {
       final scheda = Map<String, Object?>.from(righe.first)
         ..remove('id')
         ..['nome'] = nome
-        ..['data_creazione'] = DateTime.now().toIso8601String();
+        ..['data_creazione'] = DateTime.now().toIso8601String()
+        ..['ordine'] = await _prossimoOrdine(txn);
       final nuovoId = await txn.insert('schede', scheda);
       final esercizi = await txn.query('esercizi', where: 'scheda_id = ?', whereArgs: [schedaId], orderBy: 'ordine ASC');
       for (final e in esercizi) {
@@ -208,7 +240,7 @@ class DatabaseHelper {
 
   Future<List<Scheda>> getSchede() async {
     final db = await database;
-    final maps = await db.query('schede', orderBy: 'id ASC');
+    final maps = await db.query('schede', orderBy: 'ordine ASC, id ASC');
     return maps.map((m) => Scheda.fromMap(m)).toList();
   }
 
@@ -644,6 +676,7 @@ class DatabaseHelper {
           schedaId = await txn.insert('schede', {
             'nome': voce.key,
             'data_creazione': DateTime.now().toIso8601String(),
+            'ordine': await _prossimoOrdine(txn),
           });
           schedeNuove++;
         }

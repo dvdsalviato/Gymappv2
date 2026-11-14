@@ -18,11 +18,41 @@ class SchedaEditorScreen extends StatefulWidget {
 class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
   List<Esercizio> _esercizi = [];
   bool _loading = true;
+  late String _nome = widget.scheda.nome;
 
   @override
   void initState() {
     super.initState();
     _carica();
+  }
+
+  /// Cambia il nome della scheda (dalla matita accanto al titolo).
+  Future<void> _rinomina() async {
+    final controller = TextEditingController(text: _nome);
+    final nuovo = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rinomina scheda'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(hintText: 'Nome scheda'),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Salva'),
+          ),
+        ],
+      ),
+    );
+    if (nuovo == null || nuovo.isEmpty || nuovo == _nome || widget.scheda.id == null) return;
+    await DatabaseHelper.instance.rinominaScheda(widget.scheda.id!, nuovo);
+    if (!mounted) return;
+    setState(() => _nome = nuovo);
   }
 
   /// Un superset ha senso solo con almeno due esercizi di fila: se ne resta
@@ -159,7 +189,16 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.scheda.nome)),
+      appBar: AppBar(
+        title: GestureDetector(onTap: _rinomina, child: Text(_nome)),
+        actions: [
+          IconButton(
+            tooltip: 'Rinomina scheda',
+            icon: const Icon(Icons.drive_file_rename_outline),
+            onPressed: _rinomina,
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),

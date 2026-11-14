@@ -23,6 +23,7 @@ class SchedaDettaglioScreen extends StatefulWidget {
 class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
   List<Esercizio> _esercizi = [];
   bool _loading = true;
+  late String _nome = widget.scheda.nome;
 
   @override
   void initState() {
@@ -44,6 +45,11 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
       context,
       MaterialPageRoute(builder: (_) => SchedaEditorScreen(scheda: widget.scheda)),
     );
+    // Il nome potrebbe essere cambiato nell'editor.
+    final schede = await DatabaseHelper.instance.getSchede();
+    for (final s in schede) {
+      if (s.id == widget.scheda.id) _nome = s.nome;
+    }
     await _carica();
   }
 
@@ -53,7 +59,7 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Duplicare la scheda?'),
         content: Text(
-          'Verrà creata una copia di "${widget.scheda.nome}" con gli stessi esercizi. Lo storico non viene copiato.',
+          'Verrà creata una copia di "$_nome" con gli stessi esercizi. Lo storico non viene copiato.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
@@ -128,7 +134,7 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
     final serieTotali = _esercizi.fold<int>(0, (a, e) => a + e.serieTotali);
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.scheda.nome),
+        title: Text(_nome),
         actions: [
           IconButton(tooltip: 'Modifica', icon: const Icon(Icons.edit_outlined), onPressed: _modifica),
           IconButton(tooltip: 'Duplica', icon: const Icon(Icons.content_copy_outlined), onPressed: _duplica),

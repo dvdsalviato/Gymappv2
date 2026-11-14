@@ -15,6 +15,7 @@ import '../models/esercizio.dart';
 import '../models/storico.dart';
 import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animazione_esercizio.dart';
 import '../widgets/campo_numero.dart';
 import '../widgets/dialogo_azioni.dart';
 import '../data/statistiche.dart';
@@ -817,7 +818,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
           const SizedBox(height: 20),
           _hero('${voce.esercizio.supersetId != 0 ? 'SUPERSET · ' : ''}SERIE ${voce.numeroSerie} DI ${voce.esercizio.serieTotali}', voce.esercizio.nome, voce.esercizio.note),
           const SizedBox(height: 20),
-          _iconaEsercizio(icona: voce.esercizio.aTempo ? Icons.timer_outlined : Icons.fitness_center),
+          AnimazioneEsercizio(
+            nomeEsercizio: voce.esercizio.nome,
+            segnaposto: _iconaEsercizio(icona: voce.esercizio.aTempo ? Icons.timer_outlined : Icons.fitness_center),
+          ),
           const SizedBox(height: 20),
           Wrap(
             spacing: 12,
@@ -889,7 +893,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                 if (aTempo)
                   Center(child: _anelloCountdown(etichetta: 'rimanenti', orologio: true, dimensione: 220))
                 else
-                  _iconaEsercizio(),
+                  AnimazioneEsercizio(nomeEsercizio: e.nome, segnaposto: _iconaEsercizio()),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 12,

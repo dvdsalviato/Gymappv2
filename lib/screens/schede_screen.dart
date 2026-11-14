@@ -82,6 +82,19 @@ class _SchedeScreenState extends State<SchedeScreen> {
     _carica();
   }
 
+  /// Trascinamento finito: aggiorna subito la lista e salva il nuovo ordine.
+  Future<void> _spostaScheda(int vecchio, int nuovo) async {
+    if (nuovo > vecchio) nuovo--;
+    if (nuovo == vecchio) return;
+    setState(() {
+      final s = _schede.removeAt(vecchio);
+      _schede.insert(nuovo, s);
+    });
+    await DatabaseHelper.instance.aggiornaOrdineSchede(
+      _schede.where((s) => s.id != null).map((s) => s.id!).toList(),
+    );
+  }
+
   Future<void> _eliminaScheda(Scheda scheda) async {
     if (scheda.id == null) return;
     final conferma = await showDialog<bool>(
@@ -119,6 +132,10 @@ class _SchedeScreenState extends State<SchedeScreen> {
     );
     await _carica();
     if (!mounted) return;
+    // Usa la scheda ricaricata: nell'editor potrebbe essere stata rinominata.
+    for (final s in _schede) {
+      if (s.id == scheda.id) scheda = s;
+    }
     if (azione == 'inizia') {
       await _iniziaAllenamento(scheda);
     } else if (azione == 'condividi') {
@@ -418,7 +435,12 @@ class _SchedeScreenState extends State<SchedeScreen> {
                 ),
               ],
             ),
-            Text('Le tue schede di allenamento', style: TextStyle(color: Colors.grey.shade600)),
+            Text(
+              _schede.length > 1
+                  ? 'Tieni premuta una scheda per spostarla'
+                  : 'Le tue schede di allenamento',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
             const SizedBox(height: 20),
             if (GestoreSessione.inPausa != null) _bannerPausa(),
             Expanded(
@@ -426,18 +448,32 @@ class _SchedeScreenState extends State<SchedeScreen> {
                   ? const Center(child: CircularProgressIndicator())
                   : _schede.isEmpty
                       ? _benvenuto()
-                      : ListView.separated(
+                      // Tieni premuta una scheda e trascinala per cambiarne la posizione.
+                      : ReorderableListView.builder(
                           itemCount: _schede.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 10),
+                          onReorder: _spostaScheda,
+                          // Durante il trascinamento la card si ingrandisce leggermente.
+                          proxyDecorator: (child, _, animazione) => AnimatedBuilder(
+                            animation: animazione,
+                            builder: (_, figlio) => Transform.scale(
+                              scale: 1 + 0.04 * Curves.easeOut.transform(animazione.value),
+                              child: figlio,
+                            ),
+                            child: Material(color: Colors.transparent, child: child),
+                          ),
                           itemBuilder: (context, index) {
                             final s = _schede[index];
                             final n = _conteggioEsercizi[s.id] ?? 0;
-                            return _CardScheda(
-                              nome: s.nome,
-                              numeroEsercizi: n,
-                              ultimo: s.id == null ? null : _ultime[s.id!],
-                              onInizia: () => _iniziaAllenamento(s),
-                              onApri: () => _apriDettaglio(s),
+                            return Padding(
+                              key: ValueKey('scheda_${s.id}'),
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _CardScheda(
+                                nome: s.nome,
+                                numeroEsercizi: n,
+                                ultimo: s.id == null ? null : _ultime[s.id!],
+                                onInizia: () => _iniziaAllenamento(s),
+                                onApri: () => _apriDettaglio(s),
+                              ),
                             );
                           },
                         ),
