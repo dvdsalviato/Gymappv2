@@ -1,0 +1,15 @@
+# Generati a ogni build da scripts/bootstrap.sh
+android/
+ios/
+web/
+linux/
+macos/
+windows/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+*.jks
+*.p12
+key.properties
