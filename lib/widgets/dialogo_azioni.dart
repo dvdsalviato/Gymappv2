@@ -48,7 +48,7 @@ Future<T?> mostraDialogoAzioni<T>(
                 minimumSize: const Size.fromHeight(52),
                 shape: forma,
                 foregroundColor: Colors.redAccent,
-                side: BorderSide(color: Colors.redAccent.withOpacity(0.7)),
+                side: BorderSide(color: Colors.redAccent.withValues(alpha: 0.7)),
               ),
             );
             break;
@@ -60,7 +60,7 @@ Future<T?> mostraDialogoAzioni<T>(
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
                 shape: forma,
-                side: BorderSide(color: Colors.white.withOpacity(0.25)),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
               ),
             );
             break;

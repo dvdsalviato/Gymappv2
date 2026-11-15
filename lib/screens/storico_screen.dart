@@ -270,7 +270,7 @@ class _StoricoScreenState extends State<StoricoScreen> {
                     Positioned(
                       left: larghezza * 10 / massimo,
                       width: larghezza * 10 / massimo,
-                      child: Container(height: 10, color: Colors.green.withOpacity(0.25)),
+                      child: Container(height: 10, color: Colors.green.withValues(alpha: 0.25)),
                     ),
                     Container(
                       height: 10,

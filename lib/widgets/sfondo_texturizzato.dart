@@ -42,7 +42,7 @@ class _TexturePainter extends CustomPainter {
           ..shader = RadialGradient(
             center: Alignment.bottomLeft,
             radius: 1.0,
-            colors: [lime.withOpacity(0.10), lime.withOpacity(0)],
+            colors: [lime.withValues(alpha: 0.10), lime.withValues(alpha: 0)],
           ).createShader(rect),
       );
       canvas.drawRect(
@@ -51,12 +51,12 @@ class _TexturePainter extends CustomPainter {
           ..shader = RadialGradient(
             center: Alignment.topRight,
             radius: 0.8,
-            colors: [lime.withOpacity(0.06), lime.withOpacity(0)],
+            colors: [lime.withValues(alpha: 0.06), lime.withValues(alpha: 0)],
           ).createShader(rect),
       );
     }
     final linee = Paint()
-      ..color = colore.withOpacity(scuro ? 0.035 : 0.03)
+      ..color = colore.withValues(alpha: scuro ? 0.035 : 0.03)
       ..strokeWidth = 1;
     for (double x = -size.height; x < size.width; x += 7) {
       canvas.drawLine(Offset(x, size.height), Offset(x + size.height, 0), linee);
@@ -71,7 +71,7 @@ class _TexturePainter extends CustomPainter {
       PointMode.points,
       punti,
       Paint()
-        ..color = colore.withOpacity(scuro ? 0.07 : 0.06)
+        ..color = colore.withValues(alpha: scuro ? 0.07 : 0.06)
         ..strokeWidth = 1.2,
     );
   }

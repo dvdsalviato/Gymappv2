@@ -112,7 +112,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: selezionato ? AppColors.accento.withOpacity(0.15) : coloreChip(context),
+                  color: selezionato ? AppColors.accento.withValues(alpha: 0.15) : coloreChip(context),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: selezionato ? AppColors.accento : Colors.transparent,

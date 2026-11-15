@@ -690,7 +690,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
         _mettiInPausa();
       },
@@ -1081,9 +1081,9 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.accento.withOpacity(0.12),
+          color: AppColors.accento.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.accento.withOpacity(0.5)),
+          border: Border.all(color: AppColors.accento.withValues(alpha: 0.5)),
         ),
         child: Row(
           children: [
@@ -1166,7 +1166,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       decoration: BoxDecoration(
         color: coloreSuperficie(context),
         borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppColors.accento.withOpacity(0.35)),
+        border: Border.all(color: AppColors.accento.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1215,7 +1215,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: AppColors.accento.withOpacity(0.14),
+                      color: AppColors.accento.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(m, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
@@ -1499,9 +1499,9 @@ class _RegistraSerieSheetState extends State<_RegistraSerieSheet> {
             Container(
               padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
               decoration: BoxDecoration(
-                color: AppColors.accento.withOpacity(0.12),
+                color: AppColors.accento.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: AppColors.accento.withOpacity(0.6)),
+                border: Border.all(color: AppColors.accento.withValues(alpha: 0.6)),
               ),
               child: Row(
                 children: [

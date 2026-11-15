@@ -4,6 +4,7 @@ import '../db/database_helper.dart';
 import '../models/esercizio.dart';
 import '../models/scheda.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animazione_esercizio.dart';
 import 'edit_esercizio_screen.dart';
 
 class SchedaEditorScreen extends StatefulWidget {
@@ -44,6 +45,7 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annulla')),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            style: FilledButton.styleFrom(minimumSize: const Size(100, 44)),
             child: const Text('Salva'),
           ),
         ],
@@ -151,8 +153,42 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
     if (risultato == true) _carica();
   }
 
+  /// Chiede conferma prima di eliminare: insieme all'esercizio sparisce
+  /// anche il suo storico (serie, record e grafici).
+  Future<bool> _confermaElimina(Esercizio esercizio) async {
+    if (esercizio.id == null) return false;
+    final serie = await DatabaseHelper.instance.contaSerieEsercizio(esercizio.id!);
+    if (!mounted) return false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Eliminare "${esercizio.nome}"?'),
+        content: Text(
+          serie == 0
+              ? 'L\'esercizio verrà tolto dalla scheda.'
+              : 'Verrà eliminato anche il suo storico: $serie '
+                  '${serie == 1 ? 'serie registrata' : 'serie registrate'}, con record e grafici.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade400,
+              foregroundColor: Colors.white,
+              minimumSize: const Size(100, 44),
+            ),
+            child: const Text('Elimina'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   Future<void> _elimina(Esercizio esercizio) async {
     if (esercizio.id == null) return;
+    setState(() => _esercizi.removeWhere((x) => x.id == esercizio.id));
     await DatabaseHelper.instance.deleteEsercizio(esercizio.id!);
     _carica();
   }
@@ -240,11 +276,12 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
                                   padding: const EdgeInsets.only(right: 20),
                                   child: const Icon(Icons.delete, color: Colors.red),
                                 ),
+                                confirmDismiss: (_) => _confermaElimina(e),
                                 onDismissed: (_) => _elimina(e),
                                 child: Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: Container(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
                                     decoration: BoxDecoration(
                                       color: coloreCard(context),
                                       borderRadius: BorderRadius.circular(20),
@@ -257,6 +294,10 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
                                             padding: const EdgeInsets.only(right: 12),
                                             child: Icon(Icons.drag_handle, color: Colors.grey.shade400),
                                           ),
+                                        ),
+                                        Padding(
+                                          padding: const EdgeInsets.only(right: 12),
+                                          child: MiniaturaEsercizio(nomeEsercizio: e.nome, dimensione: 46, aTempo: e.aTempo),
                                         ),
                                         Expanded(
                                           child: InkWell(

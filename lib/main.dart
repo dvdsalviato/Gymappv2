@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'db/database_helper.dart';
@@ -13,6 +14,13 @@ final List<String> _erroriAvvio = [];
 void main() {
   runZonedGuarded(() {
     WidgetsFlutterBinding.ensureInitialized();
+    // Licenze dei font inclusi (SIL Open Font License), visibili tra le licenze dell'app.
+    LicenseRegistry.addLicense(() async* {
+      for (final font in const ['Oswald', 'Barlow']) {
+        final testo = await rootBundle.loadString('assets/google_fonts/OFL-$font.txt');
+        yield LicenseEntryWithLineBreaks([font], testo);
+      }
+    });
     FlutterError.onError = (dettagli) {
       FlutterError.presentError(dettagli);
       _erroriAvvio.add('${dettagli.exceptionAsString()}\n${dettagli.stack ?? ''}');

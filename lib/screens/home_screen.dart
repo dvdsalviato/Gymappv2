@@ -7,6 +7,7 @@ import '../data/contenuti.dart';
 import '../data/medaglie.dart';
 import '../data/statistiche.dart';
 import '../db/database_helper.dart';
+import '../models/scheda.dart';
 import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
 import 'assistente_screen.dart';
@@ -50,6 +51,10 @@ class _HomeScreenState extends State<HomeScreen> {
   StatisticheUtente? _stat;
   int _medaglieSbloccate = 0;
   bool _ricettaAperta = false;
+  // Prossima scheda della rotazione (quella dopo l'ultima fatta).
+  Scheda? _prossima;
+  int _eserciziProssima = 0;
+  DateTime? _ultimaProssima;
 
   @override
   void initState() {
@@ -83,8 +88,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final stat = await caricaStatistiche();
     final esito = await aggiornaMedaglie(stat);
+
+    // Rotazione: si propone la scheda che segue (nel tuo ordine) l'ultima fatta.
+    final schede = await DatabaseHelper.instance.getSchede();
+    final conteggi = await DatabaseHelper.instance.contaEserciziPerScheda();
+    final ultime = await DatabaseHelper.instance.getUltimaSessionePerScheda();
+    final valide = schede.where((s) => s.id != null && (conteggi[s.id] ?? 0) > 0).toList();
+    Scheda? prossima;
+    if (valide.isNotEmpty) {
+      var indiceUltima = -1;
+      DateTime? piuRecente;
+      for (var i = 0; i < valide.length; i++) {
+        final d = ultime[valide[i].id];
+        if (d != null && (piuRecente == null || d.isAfter(piuRecente))) {
+          piuRecente = d;
+          indiceUltima = i;
+        }
+      }
+      prossima = valide[(indiceUltima + 1) % valide.length];
+    }
+
     if (!mounted) return;
     setState(() {
+      _prossima = prossima;
+      _eserciziProssima = prossima == null ? 0 : (conteggi[prossima.id] ?? 0);
+      _ultimaProssima = prossima == null ? null : ultime[prossima.id];
       _presenze = presenze;
       _serie7 = volumi.values.fold(0, (a, b) => a + b);
       _peso = peso;
@@ -159,6 +187,37 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  /// Avvia subito la scheda proposta in Home.
+  Future<void> _iniziaProssima() async {
+    final scheda = _prossima;
+    // Se c'è un allenamento in pausa decide la schermata Schede (riprendere o no).
+    if (scheda == null || scheda.id == null || GestoreSessione.inPausa != null) {
+      widget.onVaiAlleSchede();
+      return;
+    }
+    final esercizi = await DatabaseHelper.instance.getEsercizi(scheda.id!);
+    if (esercizi.isEmpty || !mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => WorkoutScreen(esercizi: esercizi, nomeScheda: scheda.nome)),
+    );
+    if (mounted) {
+      setState(() {});
+      _carica();
+    }
+  }
+
+  String _quando(DateTime? d) {
+    if (d == null) return 'mai fatta';
+    final oggi = DateTime.now();
+    final giorni = DateTime(oggi.year, oggi.month, oggi.day).difference(DateTime(d.year, d.month, d.day)).inDays;
+    if (giorni <= 0) return 'fatta oggi';
+    if (giorni == 1) return 'fatta ieri';
+    if (giorni < 14) return 'fatta $giorni giorni fa';
+    if (giorni < 60) return 'fatta ${giorni ~/ 7} settimane fa';
+    return 'fatta ${giorni ~/ 30} mesi fa';
+  }
+
   String _durata(Duration d) {
     String due(int n) => n.toString().padLeft(2, '0');
     final h = d.inHours;
@@ -229,7 +288,9 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            inCorso ? (pausa != null ? 'ALLENAMENTO IN PAUSA' : 'ALLENAMENTO IN CORSO') : 'ALLENAMENTO',
+            inCorso
+                ? (pausa != null ? 'ALLENAMENTO IN PAUSA' : 'ALLENAMENTO IN CORSO')
+                : (_prossima != null ? 'PROSSIMO ALLENAMENTO' : 'ALLENAMENTO'),
             style: TextStyle(
               color: inCorso ? AppColors.accento : Colors.grey.shade500,
               fontWeight: FontWeight.w700,
@@ -252,6 +313,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: const Icon(Icons.play_arrow),
                 label: const Text('Riprendi allenamento'),
               ),
+          ] else if (_prossima != null) ...[
+            Text(
+              _prossima!.nome.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.oswald(fontSize: 38, fontWeight: FontWeight.w700, height: 1.1),
+            ),
+            Text(
+              '${_eserciziProssima == 1 ? '1 esercizio' : '$_eserciziProssima esercizi'} · ${_quando(_ultimaProssima)}',
+              style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: _iniziaProssima,
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text('Inizia ${_prossima!.nome}', overflow: TextOverflow.ellipsis),
+            ),
+            const SizedBox(height: 6),
+            Center(
+              child: TextButton(
+                onPressed: widget.onVaiAlleSchede,
+                child: const Text('Scegli un\'altra scheda'),
+              ),
+            ),
           ] else ...[
             Text(
               'Nessun allenamento in corso',
@@ -306,7 +391,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       border: Border.all(
                         color: presente
                             ? AppColors.accento
-                            : (eOggi ? AppColors.accento : Colors.white.withOpacity(0.12)),
+                            : (eOggi
+                                ? AppColors.accento
+                                : (Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white.withValues(alpha: 0.12)
+                                    : Colors.black.withValues(alpha: 0.12))),
                         width: eOggi ? 2 : 1,
                       ),
                     ),
@@ -711,7 +800,7 @@ class _AnelloPainter extends CustomPainter {
     final traccia = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 11
-      ..color = Colors.white.withOpacity(0.08);
+      ..color = Colors.white.withValues(alpha: 0.08);
     canvas.drawCircle(centro, raggio, traccia);
     if (progresso <= 0) return;
     final arco = Paint()

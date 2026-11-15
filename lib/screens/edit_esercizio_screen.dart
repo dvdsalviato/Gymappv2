@@ -202,7 +202,7 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: selezionata ? AppColors.accento.withOpacity(0.15) : coloreChip(context),
+                        color: selezionata ? AppColors.accento.withValues(alpha: 0.15) : coloreChip(context),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: selezionata ? AppColors.accento : Colors.transparent,

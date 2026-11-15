@@ -45,6 +45,8 @@ flutter:
     - assets/icon.png
     - assets/logo.png
     - assets/esercizi/
+    # Font inclusi nell'app: niente download al primo avvio (funzionano anche offline).
+    - assets/google_fonts/
 
 flutter_launcher_icons:
   android: true

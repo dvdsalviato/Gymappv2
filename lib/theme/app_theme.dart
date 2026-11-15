@@ -55,6 +55,7 @@ ThemeData _costruisci({
   required Color testo,
   required Color hint,
   required double opacitaIndicatore,
+  required Color superficie,
 }) {
   final testi = _testi(testo, b);
   return ThemeData(
@@ -74,8 +75,40 @@ ThemeData _costruisci({
       backgroundColor: sfondo,
       foregroundColor: testo,
       elevation: 0,
+      // Niente velatura colorata quando il contenuto scorre sotto la barra.
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
       centerTitle: false,
+      titleTextStyle: GoogleFonts.oswald(
+          fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: 0.8, color: testo),
     ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: superficie,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      titleTextStyle: GoogleFonts.oswald(
+          fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: 0.4, color: testo),
+      contentTextStyle: GoogleFonts.barlow(fontSize: 15, height: 1.4, color: testo.withValues(alpha: 0.8)),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: superficie,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      textStyle: GoogleFonts.barlow(fontSize: 15, fontWeight: FontWeight.w600, color: testo),
+    ),
+    cardTheme: CardThemeData(
+      color: card,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: b == Brightness.dark ? AppColors.accento : Colors.black87,
+        textStyle: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.6),
+      ),
+    ),
+    dividerTheme: DividerThemeData(color: testo.withValues(alpha: 0.08), thickness: 1),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: AppColors.accento,
@@ -98,7 +131,7 @@ ThemeData _costruisci({
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: card,
-      indicatorColor: AppColors.accento.withOpacity(opacitaIndicatore),
+      indicatorColor: AppColors.accento.withValues(alpha: opacitaIndicatore),
       labelTextStyle: WidgetStateProperty.all(
         GoogleFonts.oswald(
             fontSize: 13, fontWeight: FontWeight.w500, letterSpacing: 0.6, color: testo),
@@ -107,6 +140,7 @@ ThemeData _costruisci({
     drawerTheme: DrawerThemeData(backgroundColor: card),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: card,
+      surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
@@ -142,6 +176,7 @@ ThemeData buildLightTheme() => _costruisci(
       testo: Colors.black,
       hint: Colors.grey.shade400,
       opacitaIndicatore: 0.35,
+      superficie: Colors.white,
     );
 
 ThemeData buildDarkTheme() => _costruisci(
@@ -152,4 +187,5 @@ ThemeData buildDarkTheme() => _costruisci(
       testo: Colors.white,
       hint: Colors.grey.shade600,
       opacitaIndicatore: 0.25,
+      superficie: const Color(0xFF1E1E24),
     );

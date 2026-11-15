@@ -244,6 +244,30 @@ class DatabaseHelper {
     return maps.map((m) => Scheda.fromMap(m)).toList();
   }
 
+  /// Numero di esercizi di ogni scheda, con una sola query.
+  Future<Map<int, int>> contaEserciziPerScheda() async {
+    final db = await database;
+    final righe = await db.rawQuery('SELECT scheda_id AS id, COUNT(*) AS c FROM esercizi GROUP BY scheda_id');
+    return {for (final r in righe) r['id'] as int: (r['c'] as num).toInt()};
+  }
+
+  /// Serie registrate nello storico per un esercizio (si perdono se lo elimini).
+  Future<int> contaSerieEsercizio(int esercizioId) async {
+    final db = await database;
+    final r = await db.rawQuery('SELECT COUNT(*) AS c FROM storico WHERE esercizio_id = ?', [esercizioId]);
+    return Sqflite.firstIntValue(r) ?? 0;
+  }
+
+  /// Serie registrate nello storico per tutti gli esercizi di una scheda.
+  Future<int> contaSerieScheda(int schedaId) async {
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT COUNT(*) AS c FROM storico JOIN esercizi ON esercizi.id = storico.esercizio_id WHERE esercizi.scheda_id = ?',
+      [schedaId],
+    );
+    return Sqflite.firstIntValue(r) ?? 0;
+  }
+
   Future<int> contaEsercizi(int schedaId) async {
     final db = await database;
     final result = await db.rawQuery(

@@ -111,7 +111,7 @@ class _CorpoPainter extends CustomPainter {
     final contorno = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.1
-      ..color = Colors.black.withOpacity(0.6);
+      ..color = Colors.black.withValues(alpha: 0.6);
 
     for (final reg in regioni) {
       final id = reg.muscolo;
@@ -121,7 +121,7 @@ class _CorpoPainter extends CustomPainter {
         canvas.drawPath(
           reg.path,
           Paint()
-            ..color = colore.withOpacity(0.5)
+            ..color = colore.withValues(alpha: 0.5)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7),
         );
       }
@@ -315,7 +315,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: AppColors.accento.withOpacity(0.5)),
+                      border: Border.all(color: AppColors.accento.withValues(alpha: 0.5)),
                     ),
                     child: Row(
                       children: [
@@ -437,9 +437,9 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.orange.withOpacity(0.12),
+          color: Colors.orange.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.orange.withOpacity(0.5)),
+          border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

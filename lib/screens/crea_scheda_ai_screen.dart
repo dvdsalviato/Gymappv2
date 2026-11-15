@@ -309,7 +309,7 @@ class _CreaSchedaAiScreenState extends State<CreaSchedaAiScreen> {
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.12),
+                color: Colors.red.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Text(_errore!, style: const TextStyle(fontSize: 13)),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../db/database_helper.dart';
 import '../state/sessione_allenamento.dart';
 import '../widgets/dialogo_azioni.dart';
@@ -126,6 +127,17 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Tasto Indietro: dalle altre sezioni torna alla Home invece di chiudere l'app.
+    return PopScope(
+      canPop: _indice == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _indice != 0) setState(() => _indice = 0);
+      },
+      child: _scaffold(context),
+    );
+  }
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('GYMAPP'),
@@ -185,7 +197,7 @@ class _MainScreenState extends State<MainScreen> {
         decoration: BoxDecoration(
           color: coloreCard(context),
           borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: Colors.white.withOpacity(0.07)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -196,7 +208,11 @@ class _MainScreenState extends State<MainScreen> {
                 button: true,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => setState(() => _indice = i),
+                  onTap: () {
+                    if (_indice == i) return;
+                    HapticFeedback.selectionClick();
+                    setState(() => _indice = i);
+                  },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     width: 46,

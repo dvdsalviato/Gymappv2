@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../data/tempo.dart';
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
 import '../models/scheda.dart';
 import '../theme/app_theme.dart';
+import '../widgets/animazione_esercizio.dart';
 import 'scheda_editor_screen.dart';
 
 /// Dettaglio di una scheda: elenco degli esercizi in sola lettura, con la
@@ -77,6 +79,83 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
     Navigator.pop(context, 'duplicata');
   }
 
+  /// Durata stimata: per ogni serie il tempo di esecuzione (circa 3 secondi a
+  /// ripetizione, o la durata se è a tempo) più il recupero, e un minuto per
+  /// passare da un esercizio all'altro.
+  int _minutiStimati() {
+    var secondi = 0;
+    for (final e in _esercizi) {
+      final esecuzione = e.aTempo ? e.repTarget : e.repTarget * 3;
+      secondi += e.serieTotali * (esecuzione + e.riposoSecondi) + 60;
+    }
+    final minuti = (secondi / 60).round();
+    return minuti < 10 ? minuti : ((minuti + 2) ~/ 5) * 5;
+  }
+
+  Widget _tessera(String valore, String etichetta) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(color: coloreCard(context), borderRadius: BorderRadius.circular(18)),
+        child: Column(
+          children: [
+            Text(valore, style: GoogleFonts.oswald(fontSize: 24, fontWeight: FontWeight.w700, height: 1.1)),
+            const SizedBox(height: 2),
+            Text(etichetta, style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Riepilogo in alto: numeri principali e muscoli allenati.
+  Widget _riepilogo() {
+    final serieTotali = _esercizi.fold<int>(0, (a, e) => a + e.serieTotali);
+    final perGruppo = <String, int>{};
+    for (final e in _esercizi) {
+      perGruppo[e.categoria] = (perGruppo[e.categoria] ?? 0) + e.serieTotali;
+    }
+    final gruppi = perGruppo.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _tessera('${_esercizi.length}', 'esercizi'),
+              const SizedBox(width: 8),
+              _tessera('$serieTotali', 'serie'),
+              const SizedBox(width: 8),
+              _tessera('~${_minutiStimati()}', 'minuti'),
+            ],
+          ),
+          if (gruppi.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final g in gruppi)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.accento.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${g.key} · ${g.value} serie',
+                      style: const TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 12),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   String _riposo(int s) => (s >= 120 && s % 60 == 0) ? '${s ~/ 60} min' : '$s s';
 
   Widget _riga(int indice, Esercizio e) {
@@ -84,18 +163,11 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
     final note = e.note?.trim() ?? '';
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
-      decoration: BoxDecoration(color: coloreCard(context), borderRadius: BorderRadius.circular(18)),
+      padding: const EdgeInsets.fromLTRB(10, 10, 16, 10),
+      decoration: BoxDecoration(color: coloreCard(context), borderRadius: BorderRadius.circular(20)),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(color: coloreChip(context), shape: BoxShape.circle),
-            child: Text('${indice + 1}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-          ),
+          MiniaturaEsercizio(nomeEsercizio: e.nome, numero: indice + 1, aTempo: e.aTempo),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -131,7 +203,6 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final serieTotali = _esercizi.fold<int>(0, (a, e) => a + e.serieTotali);
     return Scaffold(
       appBar: AppBar(
         title: Text(_nome),
@@ -166,13 +237,7 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
                       : ListView(
                           padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(
-                                '${_esercizi.length} esercizi · $serieTotali serie in totale',
-                                style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
-                              ),
-                            ),
+                            _riepilogo(),
                             for (var i = 0; i < _esercizi.length; i++) _riga(i, _esercizi[i]),
                           ],
                         ),

@@ -42,7 +42,7 @@ class _MedaglieScreenState extends State<MedaglieScreen> {
       decoration: BoxDecoration(
         color: coloreSuperficie(context),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: sbloccata ? colTier.withOpacity(0.7) : Colors.transparent),
+        border: Border.all(color: sbloccata ? colTier.withValues(alpha: 0.7) : Colors.transparent),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

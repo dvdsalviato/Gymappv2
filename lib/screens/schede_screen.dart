@@ -36,12 +36,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
   Future<void> _carica() async {
     setState(() => _loading = true);
     final lista = await DatabaseHelper.instance.getSchede();
-    final conteggi = <int, int>{};
-    for (final s in lista) {
-      if (s.id != null) {
-        conteggi[s.id!] = await DatabaseHelper.instance.contaEsercizi(s.id!);
-      }
-    }
+    final conteggi = await DatabaseHelper.instance.contaEserciziPerScheda();
     final ultime = await DatabaseHelper.instance.getUltimaSessionePerScheda();
     if (!mounted) return;
     setState(() {
@@ -97,12 +92,18 @@ class _SchedeScreenState extends State<SchedeScreen> {
 
   Future<void> _eliminaScheda(Scheda scheda) async {
     if (scheda.id == null) return;
+    final serie = await DatabaseHelper.instance.contaSerieScheda(scheda.id!);
+    if (!mounted) return;
     final conferma = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Eliminare la scheda?'),
         content: Text(
-          'Verranno eliminati anche tutti gli esercizi e lo storico di "${scheda.nome}".',
+          serie == 0
+              ? 'Verranno eliminati anche tutti gli esercizi di "${scheda.nome}".'
+              : 'Verranno eliminati anche tutti gli esercizi di "${scheda.nome}" e il loro storico '
+                  '($serie ${serie == 1 ? 'serie registrata' : 'serie registrate'}, con record e grafici).\n\n'
+                  'Se vuoi solo cambiarla, modificala invece di eliminarla.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
@@ -333,7 +334,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.accento.withOpacity(0.12),
+        color: AppColors.accento.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppColors.accento, width: 1.4),
       ),
@@ -496,7 +497,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
                       minimumSize: const Size.fromHeight(52),
                       shape: const StadiumBorder(),
                       foregroundColor: AppColors.accento,
-                      side: BorderSide(color: AppColors.accento.withOpacity(0.7)),
+                      side: BorderSide(color: AppColors.accento.withValues(alpha: 0.7)),
                     ),
                   ),
                 ),
@@ -510,7 +511,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
                       minimumSize: const Size.fromHeight(52),
                       shape: const StadiumBorder(),
                       foregroundColor: AppColors.accento,
-                      side: BorderSide(color: AppColors.accento.withOpacity(0.7)),
+                      side: BorderSide(color: AppColors.accento.withValues(alpha: 0.7)),
                     ),
                   ),
                 ),
@@ -565,7 +566,7 @@ class _CardScheda extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: scuro ? Colors.white.withOpacity(0.06) : Colors.transparent),
+            border: Border.all(color: scuro ? Colors.white.withValues(alpha: 0.06) : Colors.transparent),
           ),
           child: Row(
             children: [

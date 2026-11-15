@@ -304,7 +304,7 @@ class _StoricoEsercizioScreenState extends State<StoricoEsercizioScreen> {
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withOpacity(0.2), strokeWidth: 1),
+            getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.withValues(alpha: 0.2), strokeWidth: 1),
           ),
           borderData: FlBorderData(show: false),
           titlesData: FlTitlesData(
@@ -366,7 +366,7 @@ class _StoricoEsercizioScreenState extends State<StoricoEsercizioScreen> {
               color: AppColors.accento,
               barWidth: 3,
               dotData: FlDotData(show: punti.length <= 31),
-              belowBarData: BarAreaData(show: true, color: AppColors.accento.withOpacity(0.12)),
+              belowBarData: BarAreaData(show: true, color: AppColors.accento.withValues(alpha: 0.12)),
             ),
           ],
         ),
