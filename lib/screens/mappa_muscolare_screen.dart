@@ -275,7 +275,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                       style: GoogleFonts.oswald(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: 0.8),
                     ),
                   ),
-                  Text('$n serie', style: const TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 16)),
+                  Text('$n serie', style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 16)),
                 ],
               ),
               const SizedBox(height: 6),
@@ -319,7 +319,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.add_circle_outline, color: AppColors.accento, size: 20),
+                        Icon(Icons.add_circle_outline, color: AppColors.accento, size: 20),
                         const SizedBox(width: 10),
                         Expanded(child: Text(nome, style: const TextStyle(fontWeight: FontWeight.w600))),
                       ],

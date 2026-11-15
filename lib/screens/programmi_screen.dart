@@ -98,7 +98,7 @@ class _ProgrammiScreenState extends State<ProgrammiScreen> {
               const SizedBox(height: 10),
               Text(
                 '${p.schede.length} ${p.schede.length == 1 ? 'scheda' : 'schede'} · ${p.numeroEsercizi} esercizi',
-                style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.accento, fontSize: 13),
+                style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.accento, fontSize: 13),
               ),
             ],
           ),
@@ -200,7 +200,7 @@ class _AnteprimaProgrammaState extends State<_AnteprimaProgramma> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (e.superset != 0)
-                          const Text(
+                          Text(
                             'SUPERSET',
                             style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w800, fontSize: 10, letterSpacing: 1.2),
                           ),

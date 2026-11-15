@@ -112,7 +112,7 @@ class _MedaglieScreenState extends State<MedaglieScreen> {
                       Container(
                         width: 56,
                         height: 56,
-                        decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+                        decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
                         child: const Icon(Icons.local_fire_department, color: Colors.black, size: 30),
                       ),
                       const SizedBox(width: 16),

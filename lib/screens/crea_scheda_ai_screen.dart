@@ -257,7 +257,7 @@ class _CreaSchedaAiScreenState extends State<CreaSchedaAiScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.key, size: 48, color: AppColors.accento),
+          Icon(Icons.key, size: 48, color: AppColors.accento),
           const SizedBox(height: 16),
           Text(
             'Serve la chiave Gemini',

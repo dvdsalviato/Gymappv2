@@ -8,6 +8,7 @@ import '../data/medaglie.dart';
 import '../data/statistiche.dart';
 import '../db/database_helper.dart';
 import '../models/scheda.dart';
+import '../services/promemoria.dart';
 import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
 import 'assistente_screen.dart';
@@ -201,6 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (_) => WorkoutScreen(esercizi: esercizi, nomeScheda: scheda.nome)),
     );
+    Promemoria.ripianifica();
     if (mounted) {
       setState(() {});
       _carica();
@@ -261,7 +263,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: GoogleFonts.oswald(fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: 0.6),
                 overflow: TextOverflow.ellipsis,
               ),
-              const Text(
+              Text(
                 'Do it better',
                 style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w600),
               ),
@@ -431,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Text(etichetta, style: TextStyle(color: Colors.grey.shade500, fontSize: 12, fontWeight: FontWeight.w600)),
             if (nota != null) ...[
               const SizedBox(height: 2),
-              Text(nota, style: const TextStyle(color: AppColors.accento, fontSize: 12, fontWeight: FontWeight.w700)),
+              Text(nota, style: TextStyle(color: AppColors.accento, fontSize: 12, fontWeight: FontWeight.w700)),
             ],
           ],
         ),
@@ -535,7 +537,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Container(
               width: 50,
               height: 50,
-              decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+              decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
               child: const Icon(Icons.local_fire_department, color: Colors.black),
             ),
             const SizedBox(width: 14),
@@ -588,7 +590,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Container(
                 width: 46,
                 height: 46,
-                decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
                 child: Icon(icona, color: Colors.black),
               ),
               const SizedBox(height: 8),
@@ -638,7 +640,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             width: 40,
             height: 40,
-            decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
             child: const Icon(Icons.lightbulb_outline, color: Colors.black, size: 22),
           ),
           const SizedBox(width: 14),
@@ -646,7 +648,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'CONSIGLIO DEL GIORNO',
                   style: TextStyle(color: AppColors.accento, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.3),
                 ),
@@ -679,7 +681,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   width: 40,
                   height: 40,
-                  decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
                   child: const Icon(Icons.restaurant_menu, color: Colors.black, size: 22),
                 ),
                 const SizedBox(width: 14),
@@ -687,7 +689,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'RICETTA FIT DEL GIORNO',
                         style: TextStyle(color: AppColors.accento, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.3),
                       ),

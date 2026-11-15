@@ -388,7 +388,7 @@ class _StoricoEsercizioScreenState extends State<StoricoEsercizioScreen> {
         children: [
           Text(
             dataLunga(giorno),
-            style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.accento),
+            style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.accento),
           ),
           const SizedBox(height: 4),
           for (final s in ordinate)

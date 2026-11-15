@@ -65,6 +65,10 @@ class DatabaseHelper {
         if (!colonneSchede.any((c) => c['name'] == 'ordine')) {
           await db.execute('ALTER TABLE schede ADD COLUMN ordine INTEGER NOT NULL DEFAULT 0');
         }
+        // Archivio: una scheda archiviata sparisce dalla lista ma conserva lo storico.
+        if (!colonneSchede.any((c) => c['name'] == 'archiviata')) {
+          await db.execute('ALTER TABLE schede ADD COLUMN archiviata INTEGER NOT NULL DEFAULT 0');
+        }
       },
       onCreate: _onCreate,
       // Nessuna cancellazione: le modifiche allo schema vanno fatte in modo
@@ -79,7 +83,8 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT NOT NULL,
         data_creazione TEXT NOT NULL,
-        ordine INTEGER NOT NULL DEFAULT 0
+        ordine INTEGER NOT NULL DEFAULT 0,
+        archiviata INTEGER NOT NULL DEFAULT 0
       )
     ''');
     await db.execute('''
@@ -152,6 +157,14 @@ class DatabaseHelper {
         await txn.update('schede', {'ordine': i + 1}, where: 'id = ?', whereArgs: [ids[i]]);
       }
     });
+  }
+
+  /// Sposta una scheda nell'archivio (o la ripristina, in fondo alla lista).
+  Future<void> archiviaScheda(int id, {bool archivia = true}) async {
+    final db = await database;
+    final valori = <String, Object?>{'archiviata': archivia ? 1 : 0};
+    if (!archivia) valori['ordine'] = await _prossimoOrdine(db);
+    await db.update('schede', valori, where: 'id = ?', whereArgs: [id]);
   }
 
   /// Cambia solo il nome di una scheda.
@@ -238,9 +251,15 @@ class DatabaseHelper {
     return await db.delete('schede', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<List<Scheda>> getSchede() async {
+  /// Schede attive (o, con [archiviate], quelle in archivio).
+  Future<List<Scheda>> getSchede({bool archiviate = false}) async {
     final db = await database;
-    final maps = await db.query('schede', orderBy: 'ordine ASC, id ASC');
+    final maps = await db.query(
+      'schede',
+      where: 'archiviata = ?',
+      whereArgs: [archiviate ? 1 : 0],
+      orderBy: 'ordine ASC, id ASC',
+    );
     return maps.map((m) => Scheda.fromMap(m)).toList();
   }
 
@@ -583,14 +602,22 @@ class DatabaseHelper {
              MAX(esercizi.a_tempo) AS a_tempo, SUM(storico.rep) AS rep_tot,
              (SELECT MAX(s2.carico) FROM storico s2
                 JOIN esercizi e2 ON e2.id = s2.esercizio_id
-               WHERE e2.nome = esercizi.nome AND s2.data < ?) AS record_prima
+               WHERE e2.nome = esercizi.nome AND s2.data < ?) AS record_prima,
+             -- volume dell'ultima volta che hai fatto lo stesso esercizio
+             (SELECT SUM(s3.carico * s3.rep) FROM storico s3
+                JOIN esercizi e3 ON e3.id = s3.esercizio_id
+               WHERE e3.nome = esercizi.nome
+                 AND substr(s3.data, 1, 10) = (
+                   SELECT MAX(substr(s4.data, 1, 10)) FROM storico s4
+                     JOIN esercizi e4 ON e4.id = s4.esercizio_id
+                    WHERE e4.nome = esercizi.nome AND s4.data < ?)) AS volume_prima
       FROM storico
       JOIN esercizi ON esercizi.id = storico.esercizio_id
       WHERE storico.data >= ?
       GROUP BY esercizi.nome, esercizi.categoria
       ORDER BY MIN(storico.data) ASC
       ''',
-      [iso, iso],
+      [iso, iso, iso],
     );
   }
 

@@ -210,7 +210,7 @@ class _StoricoScreenState extends State<StoricoScreen> {
           childrenPadding: const EdgeInsets.only(bottom: 8),
           title: Text(
             titolo,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.accento),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppColors.accento),
           ),
           subtitle: Text(
             esercizi.length == 1 ? '1 esercizio' : '${esercizi.length} esercizi',
@@ -338,7 +338,7 @@ class _StoricoScreenState extends State<StoricoScreen> {
               Expanded(
                 child: Text(
                   titolo,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.accento),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.accento),
                 ),
               ),
               Text('${righe.length} serie', style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),

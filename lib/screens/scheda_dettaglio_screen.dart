@@ -145,7 +145,7 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
                     ),
                     child: Text(
                       '${g.key} · ${g.value} serie',
-                      style: const TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 12),
+                      style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 12),
                     ),
                   ),
               ],
@@ -174,7 +174,7 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (e.supersetId != 0)
-                  const Text(
+                  Text(
                     'SUPERSET',
                     style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 1.3),
                   ),
@@ -213,6 +213,7 @@ class _SchedaDettaglioScreenState extends State<SchedaDettaglioScreen> {
             onSelected: (v) => Navigator.pop(context, v),
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'condividi', child: Text('Condividi come QR')),
+              PopupMenuItem(value: 'archivia', child: Text('Archivia scheda')),
               PopupMenuItem(value: 'elimina', child: Text('Elimina scheda')),
             ],
           ),

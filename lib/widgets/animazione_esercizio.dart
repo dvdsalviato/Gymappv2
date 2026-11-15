@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/immagini_esercizi.dart';
+import '../theme/app_theme.dart';
 
 /// Mostra come si esegue l'esercizio alternando due foto (inizio e fine del
 /// movimento), come una piccola gif. Se per quel nome non c'è un'immagine
@@ -11,10 +12,14 @@ class AnimazioneEsercizio extends StatefulWidget {
   final String nomeEsercizio;
   final Widget segnaposto;
 
+  /// Se vero, toccando l'immagine si apre a schermo intero.
+  final bool ingrandibile;
+
   const AnimazioneEsercizio({
     super.key,
     required this.nomeEsercizio,
     required this.segnaposto,
+    this.ingrandibile = true,
   });
 
   @override
@@ -75,10 +80,109 @@ class _AnimazioneEsercizioState extends State<AnimazioneEsercizio> {
     super.dispose();
   }
 
+  /// Immagine a tutto schermo, con il nome dell'esercizio. Si chiude toccando.
+  void _schermoIntero() {
+    showGeneralDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Chiudi',
+      barrierColor: Colors.black.withValues(alpha: 0.92),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (ctx, _, __) => SafeArea(
+        child: GestureDetector(
+          onTap: () => Navigator.pop(ctx),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Align(
+                  alignment: Alignment.topRight,
+                  child: IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                    tooltip: 'Chiudi',
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  widget.nomeEsercizio,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                InteractiveViewer(
+                  maxScale: 4,
+                  child: AnimazioneEsercizio(
+                    nomeEsercizio: widget.nomeEsercizio,
+                    segnaposto: widget.segnaposto,
+                    ingrandibile: false,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Pizzica per ingrandire · tocca per chiudere',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                const Spacer(),
+              ],
+            ),
+          ),
+        ),
+      ),
+      transitionBuilder: (ctx, animazione, _, figlio) => FadeTransition(
+        opacity: animazione,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.94, end: 1).animate(
+            CurvedAnimation(parent: animazione, curve: Curves.easeOut),
+          ),
+          child: figlio,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final percorsi = _percorsi;
     if (percorsi == null) return widget.segnaposto;
+    final immagine = _immagine(percorsi);
+    if (!widget.ingrandibile) return immagine;
+    return GestureDetector(
+      onTap: _schermoIntero,
+      child: Stack(
+        children: [
+          immagine,
+          Positioned(
+            right: 10,
+            bottom: 10,
+            child: IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.open_in_full, color: Colors.white, size: 16),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _immagine(List<String> percorsi) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -132,7 +236,7 @@ class MiniaturaEsercizio extends StatelessWidget {
     final base = immagineEsercizio(nomeEsercizio);
     final icona = Icon(
       aTempo ? Icons.timer_outlined : Icons.fitness_center,
-      color: const Color(0xFF39FF14),
+      color: AppColors.accento,
       size: dimensione * 0.45,
     );
     final immagine = ClipRRect(
@@ -170,7 +274,7 @@ class MiniaturaEsercizio extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 5),
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(0xFF39FF14),
+                color: AppColors.accento,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: scuro ? const Color(0xFF151519) : Colors.white, width: 2),
               ),

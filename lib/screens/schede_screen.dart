@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../widgets/dialogo_azioni.dart';
+import 'archivio_screen.dart';
 import 'crea_scheda_ai_screen.dart';
 import 'programmi_screen.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -8,6 +9,7 @@ import '../db/database_helper.dart';
 import '../models/esercizio.dart';
 import '../models/scheda.dart';
 import '../services/condivisione_scheda.dart';
+import '../services/promemoria.dart';
 import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
 import 'scanner_qr_screen.dart';
@@ -25,6 +27,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
   List<Scheda> _schede = [];
   Map<int, int> _conteggioEsercizi = {};
   Map<int, DateTime> _ultime = {};
+  int _archiviate = 0;
   bool _loading = true;
 
   @override
@@ -38,8 +41,10 @@ class _SchedeScreenState extends State<SchedeScreen> {
     final lista = await DatabaseHelper.instance.getSchede();
     final conteggi = await DatabaseHelper.instance.contaEserciziPerScheda();
     final ultime = await DatabaseHelper.instance.getUltimaSessionePerScheda();
+    final archiviate = (await DatabaseHelper.instance.getSchede(archiviate: true)).length;
     if (!mounted) return;
     setState(() {
+      _archiviate = archiviate;
       _schede = lista;
       _conteggioEsercizi = conteggi;
       _ultime = ultime;
@@ -90,30 +95,62 @@ class _SchedeScreenState extends State<SchedeScreen> {
     );
   }
 
+  /// Eliminare cancella anche lo storico: se ce n'è, si propone di archiviare.
   Future<void> _eliminaScheda(Scheda scheda) async {
     if (scheda.id == null) return;
     final serie = await DatabaseHelper.instance.contaSerieScheda(scheda.id!);
     if (!mounted) return;
-    final conferma = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Eliminare la scheda?'),
-        content: Text(
-          serie == 0
-              ? 'Verranno eliminati anche tutti gli esercizi di "${scheda.nome}".'
-              : 'Verranno eliminati anche tutti gli esercizi di "${scheda.nome}" e il loro storico '
-                  '($serie ${serie == 1 ? 'serie registrata' : 'serie registrate'}, con record e grafici).\n\n'
-                  'Se vuoi solo cambiarla, modificala invece di eliminarla.',
+    final scelta = await mostraDialogoAzioni<String>(
+      context,
+      titolo: 'Eliminare "${scheda.nome}"?',
+      messaggio: serie == 0
+          ? 'Verranno eliminati anche tutti i suoi esercizi.'
+          : 'Verranno eliminati anche i suoi esercizi e il loro storico '
+              '($serie ${serie == 1 ? 'serie registrata' : 'serie registrate'}, con record e grafici).\n\n'
+              'Se non la usi più ma vuoi tenere i progressi, archiviala.',
+      chiudibile: true,
+      azioni: [
+        if (serie > 0)
+          const AzioneDialogo('Archivia', Icons.archive_outlined, 'archivia', stile: StileAzione.primaria),
+        const AzioneDialogo('Elimina', Icons.delete_outline, 'elimina', stile: StileAzione.pericolo),
+        const AzioneDialogo('Annulla', Icons.arrow_back, 'annulla'),
+      ],
+    );
+    if (scelta == 'archivia') {
+      await _archiviaScheda(scheda);
+    } else if (scelta == 'elimina') {
+      await DatabaseHelper.instance.deleteScheda(scheda.id!);
+      _carica();
+    }
+  }
+
+  /// Archivia la scheda: sparisce dall'elenco, lo storico resta.
+  Future<void> _archiviaScheda(Scheda scheda) async {
+    if (scheda.id == null) return;
+    await DatabaseHelper.instance.archiviaScheda(scheda.id!);
+    await _carica();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('"${scheda.nome}" archiviata: storico e record restano'),
+        action: SnackBarAction(
+          label: 'ANNULLA',
+          textColor: Colors.black,
+          onPressed: () async {
+            await DatabaseHelper.instance.archiviaScheda(scheda.id!, archivia: false);
+            if (mounted) _carica();
+          },
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annulla')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Elimina')),
-        ],
       ),
     );
-    if (conferma != true) return;
-    await DatabaseHelper.instance.deleteScheda(scheda.id!);
-    _carica();
+  }
+
+  Future<void> _apriArchivio() async {
+    final cambiato = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const ArchivioScreen()),
+    );
+    if (cambiato == true) await _carica();
   }
 
   Future<void> _apriProgrammi() async {
@@ -143,6 +180,8 @@ class _SchedeScreenState extends State<SchedeScreen> {
       await _condividiScheda(scheda);
     } else if (azione == 'elimina') {
       await _eliminaScheda(scheda);
+    } else if (azione == 'archivia') {
+      await _archiviaScheda(scheda);
     } else if (azione == 'duplicata') {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Scheda duplicata: la trovi in fondo all\'elenco')),
@@ -191,6 +230,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
           builder: (_) => WorkoutScreen(esercizi: esercizi, nomeScheda: scheda.nome),
         ),
       );
+      Promemoria.ripianifica();
       if (mounted) setState(() {});
     }
   }
@@ -343,7 +383,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.pause_circle_outline, color: AppColors.accento),
+              Icon(Icons.pause_circle_outline, color: AppColors.accento),
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
@@ -394,7 +434,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.fitness_center, color: AppColors.accento, size: 36),
+              Icon(Icons.fitness_center, color: AppColors.accento, size: 36),
               const SizedBox(height: 12),
               Text('Da dove cominciare?', style: GoogleFonts.oswald(fontSize: 26, fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
@@ -429,10 +469,26 @@ class _SchedeScreenState extends State<SchedeScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('SCHEDE', style: GoogleFonts.oswald(fontSize: 34, fontWeight: FontWeight.w700, letterSpacing: 1)),
-                IconButton(
-                  onPressed: _importaDaQr,
-                  icon: const Icon(Icons.qr_code_scanner),
-                  tooltip: 'Importa scheda da QR',
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_archiviate > 0)
+                      IconButton(
+                        onPressed: _apriArchivio,
+                        tooltip: 'Archivio ($_archiviate)',
+                        icon: Badge(
+                          label: Text('$_archiviate'),
+                          backgroundColor: AppColors.accento,
+                          textColor: Colors.black,
+                          child: const Icon(Icons.archive_outlined),
+                        ),
+                      ),
+                    IconButton(
+                      onPressed: _importaDaQr,
+                      icon: const Icon(Icons.qr_code_scanner),
+                      tooltip: 'Importa scheda da QR',
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -576,7 +632,7 @@ class _CardScheda extends StatelessWidget {
                 child: Container(
                   width: 52,
                   height: 52,
-                  decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
                   child: const Icon(Icons.play_arrow_rounded, color: Colors.black, size: 32),
                 ),
               ),

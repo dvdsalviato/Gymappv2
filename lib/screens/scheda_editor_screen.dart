@@ -306,7 +306,7 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
                                                 if (e.supersetId != 0)
-                                                  const Text(
+                                                  Text(
                                                     'SUPERSET',
                                                     style: TextStyle(
                                                       color: AppColors.accento,

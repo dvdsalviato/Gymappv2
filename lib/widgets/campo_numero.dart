@@ -114,7 +114,7 @@ class CampoNumeroState extends State<CampoNumero> {
         const SizedBox(height: 4),
         IconButton(
           onPressed: _incrementa,
-          icon: const Icon(Icons.keyboard_arrow_up, color: AppColors.accento),
+          icon: Icon(Icons.keyboard_arrow_up, color: AppColors.accento),
         ),
         GestureDetector(
           onVerticalDragUpdate: _onDrag,
@@ -132,7 +132,7 @@ class CampoNumeroState extends State<CampoNumero> {
         ),
         IconButton(
           onPressed: _decrementa,
-          icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.accento),
+          icon: Icon(Icons.keyboard_arrow_down, color: AppColors.accento),
         ),
       ],
     );

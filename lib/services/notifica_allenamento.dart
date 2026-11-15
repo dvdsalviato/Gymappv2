@@ -71,6 +71,13 @@ class NotificaAllenamento {
     );
   }
 
+  /// Plugin pronto all'uso (inizializzato una sola volta per tutta l'app, così
+  /// i pulsanti della notifica dell'allenamento continuano a funzionare).
+  static Future<FlutterLocalNotificationsPlugin> plugin() async {
+    await _inizializza();
+    return _plugin;
+  }
+
   /// Mostra o aggiorna la notifica. [finoA] attiva il conto alla rovescia.
   static Future<void> aggiorna({
     required String titolo,

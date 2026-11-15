@@ -184,7 +184,7 @@ class _PesoScreenState extends State<PesoScreen> {
                 Flexible(
                   child: Text(
                     '${delta > 0 ? '+' : ''}${_fmt(delta)} kg $periodoTesto',
-                    style: const TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700),
+                    style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],

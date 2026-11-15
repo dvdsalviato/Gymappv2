@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../db/database_helper.dart';
+import '../services/promemoria.dart';
 import '../state/sessione_allenamento.dart';
 import '../widgets/dialogo_azioni.dart';
+import '../widgets/novita.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_controller.dart';
 import 'home_screen.dart';
@@ -29,6 +31,8 @@ class _MainScreenState extends State<MainScreen> {
     _caricaNome();
     _ripristinaAllenamento();
     _riclassificaEsercizi();
+    // Aggiorna il testo dei promemoria con la scheda che tocca adesso.
+    Promemoria.ripianifica();
   }
 
   /// Dà una categoria agli esercizi rimasti "Altro" quando il nome è
@@ -42,7 +46,11 @@ class _MainScreenState extends State<MainScreen> {
   /// Se l'app era stata chiusa durante un allenamento, propone di riprenderlo.
   Future<void> _ripristinaAllenamento() async {
     final trovato = await GestoreSessione.caricaDaDisco();
-    if (!trovato || !mounted) return;
+    if (!mounted) return;
+    if (!trovato) {
+      await _novita();
+      return;
+    }
     setState(() {});
     final sessione = GestoreSessione.inPausa;
     if (sessione == null) return;
@@ -76,6 +84,15 @@ class _MainScreenState extends State<MainScreen> {
       await GestoreSessione.cancellaSalvata();
       setState(() {});
     }
+  }
+
+  /// Le novità dell'aggiornamento, una volta sola (non a chi installa ora).
+  Future<void> _novita() async {
+    final profilo = await DatabaseHelper.instance.getProfilo();
+    final nome = (profilo?['nome'] as String?)?.trim() ?? '';
+    final nessunaScheda = (await DatabaseHelper.instance.getSchede()).isEmpty;
+    if (!mounted) return;
+    await mostraNovitaSeServe(context, primoAvvio: nome.isEmpty && nessunaScheda);
   }
 
   Future<void> _caricaNome() async {

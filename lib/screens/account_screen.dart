@@ -187,7 +187,7 @@ class _AccountScreenState extends State<AccountScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.settings_suggest_outlined, color: AppColors.accento, size: 34),
+          Icon(Icons.settings_suggest_outlined, color: AppColors.accento, size: 34),
           const SizedBox(height: 10),
           Text(titolo, style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
@@ -230,7 +230,7 @@ class _AccountScreenState extends State<AccountScreen> {
           Container(
             width: 48,
             height: 48,
-            decoration: const BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
+            decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
             child: const Icon(Icons.verified_user, color: Colors.black),
           ),
           const SizedBox(width: 14),

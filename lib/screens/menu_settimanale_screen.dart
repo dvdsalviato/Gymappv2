@@ -187,7 +187,7 @@ class _MenuSettimanaleScreenState extends State<MenuSettimanaleScreen> {
                   for (final e in lista.entries) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 14, bottom: 4),
-                      child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.accento)),
+                      child: Text(e.key, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.accento)),
                     ),
                     for (final v in e.value)
                       Padding(
@@ -283,7 +283,7 @@ class _MenuSettimanaleScreenState extends State<MenuSettimanaleScreen> {
           key: PageStorageKey<String>('menu-giorno-$i'),
           tilePadding: const EdgeInsets.symmetric(horizontal: 16),
           childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          title: Text(_giorniSettimana[i], style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.accento)),
+          title: Text(_giorniSettimana[i], style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.accento)),
           subtitle: Text(
             '${t.kcal.round()} kcal · P ${t.proteine.round()} · C ${t.carboidrati.round()} · G ${t.grassi.round()}',
             style: TextStyle(color: Colors.grey.shade500, fontSize: 12),

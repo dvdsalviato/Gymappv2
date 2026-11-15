@@ -1,11 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'theme_controller.dart';
 
 class AppColors {
   static const background = Color(0xFFF2F2F5);
   static const card = Colors.white;
-  static const accento = Color(0xFF39FF14);
+
+  /// Verde fluo del tema scuro.
+  static const neon = Color(0xFF39FF14);
+
+  /// Verde più profondo per il tema chiaro: il fluo su bianco non si leggeva
+  /// (contrasto 1,4:1), questo arriva a 4,2:1 e regge il testo nero sopra.
+  static const verdeChiaro = Color(0xFF1E8F0A);
+
+  /// Colore principale dell'app, adattato al tema attivo.
+  static Color get accento =>
+      ThemeController.modalita.value == ThemeMode.light ? verdeChiaro : neon;
   static const grigioChip = Color(0xFFEDEDF0);
 
   static const backgroundScuro = Color(0xFF0A0A0C);
@@ -58,15 +69,16 @@ ThemeData _costruisci({
   required Color superficie,
 }) {
   final testi = _testi(testo, b);
+  final accento = b == Brightness.dark ? AppColors.neon : AppColors.verdeChiaro;
   return ThemeData(
     useMaterial3: true,
     brightness: b,
     scaffoldBackgroundColor: sfondo,
     pageTransitionsTheme: _transizioniFluide,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.accento,
+      seedColor: accento,
       brightness: b,
-      primary: AppColors.accento,
+      primary: accento,
       onPrimary: Colors.black,
       surface: card,
     ),
@@ -104,14 +116,14 @@ ThemeData _costruisci({
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: b == Brightness.dark ? AppColors.accento : Colors.black87,
+        foregroundColor: accento,
         textStyle: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.6),
       ),
     ),
     dividerTheme: DividerThemeData(color: testo.withValues(alpha: 0.08), thickness: 1),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.accento,
+        backgroundColor: accento,
         foregroundColor: Colors.black,
         minimumSize: const Size.fromHeight(56),
         shape: const StadiumBorder(),
@@ -131,7 +143,7 @@ ThemeData _costruisci({
     ),
     navigationBarTheme: NavigationBarThemeData(
       backgroundColor: card,
-      indicatorColor: AppColors.accento.withValues(alpha: opacitaIndicatore),
+      indicatorColor: accento.withValues(alpha: opacitaIndicatore),
       labelTextStyle: WidgetStateProperty.all(
         GoogleFonts.oswald(
             fontSize: 13, fontWeight: FontWeight.w500, letterSpacing: 0.6, color: testo),
@@ -145,24 +157,24 @@ ThemeData _costruisci({
         borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
     ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: AppColors.accento,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: accento,
       foregroundColor: Colors.black,
       shape: CircleBorder(),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: AppColors.accento,
+      backgroundColor: accento,
       contentTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(color: AppColors.accento),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: accento),
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
         (s) => s.contains(WidgetState.selected) ? Colors.black : null,
       ),
       trackColor: WidgetStateProperty.resolveWith(
-        (s) => s.contains(WidgetState.selected) ? AppColors.accento : null,
+        (s) => s.contains(WidgetState.selected) ? accento : null,
       ),
     ),
   );

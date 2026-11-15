@@ -362,7 +362,7 @@ class _AlimentazioneScreenState extends State<AlimentazioneScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(p, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.accento)),
+                        child: Text(p, style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.accento)),
                       ),
                       Padding(
                         padding: const EdgeInsets.only(right: 10),

@@ -1,6 +1,11 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/progressione.dart';
 import '../data/superset.dart';
@@ -16,6 +21,7 @@ import '../models/storico.dart';
 import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
 import '../widgets/animazione_esercizio.dart';
+import '../widgets/riscaldamento.dart';
 import '../widgets/campo_numero.dart';
 import '../widgets/dialogo_azioni.dart';
 import '../data/statistiche.dart';
@@ -53,6 +59,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   List<StoricoEntry> _ultimaVolta = [];
   bool _caricamentoUltimo = true;
   RiepilogoSessione? _riepilogo;
+  final GlobalKey _chiaveRiepilogo = GlobalKey();
 
   // Countdown del riposo: l'anello è guidato da un AnimationController (si
   // muove a ogni fotogramma, quindi è fluido); la fine è decisa da un timer
@@ -773,7 +780,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                   strokeWidth: 10,
                   strokeCap: StrokeCap.round,
                   backgroundColor: coloreChip(context),
-                  valueColor: const AlwaysStoppedAnimation(AppColors.accento),
+                  valueColor: AlwaysStoppedAnimation(AppColors.accento),
                 ),
               ),
               Column(
@@ -841,6 +848,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
           const SizedBox(height: 16),
           _ultimaVoltaCard(_ultimaVolta, voce.numeroSerie, aTempo: voce.esercizio.aTempo),
           ..._consiglioWidget(voce.esercizio, voce.numeroSerie),
+          ..._riscaldamentoWidget(voce.esercizio, voce.numeroSerie),
           const SizedBox(height: 32),
           FilledButton.icon(
             onPressed: _premiVai,
@@ -963,7 +971,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
               ),
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'PROSSIMA SERIE',
                     style: TextStyle(
                       color: AppColors.accento,
@@ -1046,6 +1054,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
           prima != null && max > prima,
           aTempo: (r['a_tempo'] as int?) == 1,
           secondi: (r['rep_tot'] as num?)?.toInt() ?? 0,
+          volumePrima: (r['volume_prima'] as num?)?.toDouble(),
         );
       }).toList();
       _riepilogo = RiepilogoSessione(widget.nomeScheda, DateTime.now().difference(inizio), esercizi);
@@ -1070,6 +1079,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       }
     }
     return null;
+  }
+
+  /// Prima serie di un esercizio con carico: serie di avvicinamento e dischi.
+  List<Widget> _riscaldamentoWidget(Esercizio esercizio, int numeroSerie) {
+    if (numeroSerie != 1 || esercizio.aTempo) return [];
+    final c = _calcolaConsiglio(esercizio, numeroSerie);
+    if (c == null || c.carico <= 0) return [];
+    return [CardRiscaldamento(carico: c.carico)];
   }
 
   List<Widget> _consiglioWidget(Esercizio esercizio, int numeroSerie) {
@@ -1158,6 +1175,53 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     );
   }
 
+  /// Fascia "volume rispetto all'ultima volta".
+  Widget _bandaConfronto(double variazione) {
+    final su = variazione >= 0;
+    final colore = su ? AppColors.accento : Colors.orange.shade300;
+    final testo = variazione.abs() < 1
+        ? 'Stesso volume dell\'ultima volta'
+        : '${su ? '+' : '−'}${variazione.abs().toStringAsFixed(0)}% di volume rispetto all\'ultima volta';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: colore.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(su ? Icons.trending_up : Icons.trending_down, color: colore, size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Text(testo, style: TextStyle(color: colore, fontWeight: FontWeight.w700))),
+        ],
+      ),
+    );
+  }
+
+  /// Fotografa la card del riepilogo e la condivide come immagine.
+  Future<void> _condividiImmagine(RiepilogoSessione r) async {
+    try {
+      final oggetto = _chiaveRiepilogo.currentContext?.findRenderObject();
+      if (oggetto is! RenderRepaintBoundary) return;
+      final immagine = await oggetto.toImage(pixelRatio: 3);
+      final dati = await immagine.toByteData(format: ui.ImageByteFormat.png);
+      if (dati == null) return;
+      final cartella = await getTemporaryDirectory();
+      final file = File('${cartella.path}/gymapp_allenamento.png');
+      await file.writeAsBytes(dati.buffer.asUint8List());
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'image/png')],
+        text: 'Allenamento ${r.nomeScheda} completato 💪 #Gymapp',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Non riesco a creare l\'immagine: usa "Copia testo"')),
+      );
+    }
+  }
+
   Widget _cardRiepilogo(RiepilogoSessione r) {
     final muscoliLavorati = r.muscoliLavorati;
     return Container(
@@ -1182,7 +1246,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'ALLENAMENTO COMPLETATO',
                       style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 11, letterSpacing: 1.3),
                     ),
@@ -1205,6 +1269,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
               _statRiepilogo('${r.record}', 'RECORD'),
             ],
           ),
+          if (r.variazioneVolume != null) ...[
+            const SizedBox(height: 16),
+            _bandaConfronto(r.variazioneVolume!),
+          ],
           if (muscoliLavorati.isNotEmpty) ...[
             const SizedBox(height: 18),
             Wrap(
@@ -1235,6 +1303,15 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                     _dettaglioRiepilogo(e),
                     style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                   ),
+                  if (e.variazione != null && e.variazione!.abs() >= 1)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Icon(
+                        e.variazione! > 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                        size: 16,
+                        color: e.variazione! > 0 ? AppColors.accento : Colors.orange.shade300,
+                      ),
+                    ),
                   if (e.record) const Padding(padding: EdgeInsets.only(left: 6), child: Text('🏆')),
                 ],
               ),
@@ -1252,7 +1329,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         children: [
           _suggerimento('Grande, allenamento completato! Sei una macchina 💪'),
           const SizedBox(height: 24),
-          const Icon(Icons.check_circle, color: AppColors.accento, size: 72),
+          Icon(Icons.check_circle, color: AppColors.accento, size: 72),
           const SizedBox(height: 16),
           const Text(
             'Allenamento completato!',
@@ -1271,16 +1348,36 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         children: [
           _suggerimento('Grande, allenamento completato! Sei una macchina 💪'),
           const SizedBox(height: 16),
-          _cardRiepilogo(r),
+          RepaintBoundary(key: _chiaveRiepilogo, child: _cardRiepilogo(r)),
           const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () => _copiaRiepilogo(r),
-            icon: const Icon(Icons.copy),
-            label: const Text('Copia riepilogo'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size.fromHeight(52),
-              shape: const StadiumBorder(),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _condividiImmagine(r),
+                  icon: const Icon(Icons.ios_share),
+                  label: const Text('Condividi'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    shape: const StadiumBorder(),
+                    foregroundColor: AppColors.accento,
+                    side: BorderSide(color: AppColors.accento.withValues(alpha: 0.7)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _copiaRiepilogo(r),
+                  icon: const Icon(Icons.copy),
+                  label: const Text('Copia testo'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    shape: const StadiumBorder(),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           FilledButton(
@@ -1359,7 +1456,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         child: Row(
           mainAxisAlignment: compatta ? MainAxisAlignment.center : MainAxisAlignment.start,
           children: [
-            const Icon(Icons.trending_up, color: AppColors.accento, size: 20),
+            Icon(Icons.trending_up, color: AppColors.accento, size: 20),
             const SizedBox(width: 10),
             Text(
               'Prima volta con questo esercizio',
@@ -1399,7 +1496,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
               children: [
                 Text(
                   'Serie ${questa.serieNumero}',
-                  style: const TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 15),
+                  style: TextStyle(color: AppColors.accento, fontWeight: FontWeight.w700, fontSize: 15),
                 ),
                 const SizedBox(width: 12),
                 Text(
@@ -1505,7 +1602,7 @@ class _RegistraSerieSheetState extends State<_RegistraSerieSheet> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.lightbulb_outline, color: AppColors.accento, size: 20),
+                  Icon(Icons.lightbulb_outline, color: AppColors.accento, size: 20),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(

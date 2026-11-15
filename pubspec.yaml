@@ -1,7 +1,7 @@
 name: gymapp_v2
 description: App per automatizzare la scheda palestra
 publish_to: 'none'
-version: 1.0.0+1
+version: 2.0.0+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -26,6 +26,8 @@ dependencies:
   wakelock_plus: ^1.2.8
   share_plus: ^10.0.0
   file_picker: ^8.0.0
+  # Fusi orari per i promemoria (stessa versione usata dalle notifiche).
+  timezone: any
 
 # La versione 2.5.0 di shared_preferences_android usa JNI e va in errore all'avvio nelle build
 # "release" (flutter/flutter#194649). Si resta sull'ultima versione precedente, che usa gli

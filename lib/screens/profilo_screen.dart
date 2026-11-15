@@ -6,6 +6,7 @@ import '../widgets/campo_numero.dart';
 import '../widgets/card_fabbisogno.dart';
 import '../widgets/sezione_dati_backup.dart';
 import 'peso_screen.dart';
+import '../widgets/card_promemoria.dart';
 
 class ProfiloScreen extends StatefulWidget {
   /// Se true la schermata non ha una propria barra in alto (è una scheda
@@ -269,6 +270,8 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                         ),
                         const SizedBox(height: 14),
                         const SezioneDatiBackup(),
+                        const SizedBox(height: 14),
+                        const CardPromemoria(),
                         const SizedBox(height: 22),
                         _sezioneDati(),
                       ],
