@@ -7,6 +7,7 @@ import '../data/medaglie.dart';
 import '../data/statistiche.dart';
 import '../db/database_helper.dart';
 import '../models/scheda.dart';
+import '../services/aggiornamenti.dart';
 import '../services/coach_servizio.dart';
 import '../services/promemoria.dart';
 import '../state/sessione_allenamento.dart';
@@ -214,6 +215,35 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String _fmt(double v) => v.toStringAsFixed(1).replaceAll('.', ',');
+
+  /// Banner "nuova versione disponibile".
+  Widget _bannerAggiornamento(Aggiornamento a) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: AppColors.accento.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.accento.withValues(alpha: 0.6)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.system_update, color: AppColors.accento),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'È disponibile un nuovo aggiornamento (build ${a.build})',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          TextButton(
+            onPressed: () => mostraAggiornaApp(context),
+            child: const Text('Aggiorna'),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _etichetta(String testo) {
     return Padding(
@@ -612,6 +642,10 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _intestazione(),
           const SizedBox(height: 18),
+          ValueListenableBuilder<Aggiornamento?>(
+            valueListenable: Aggiornamenti.disponibile,
+            builder: (context, agg, _) => agg == null ? const SizedBox.shrink() : _bannerAggiornamento(agg),
+          ),
           _cardAllenamento(),
           const SizedBox(height: 12),
           if (_consigli.isNotEmpty) ...[

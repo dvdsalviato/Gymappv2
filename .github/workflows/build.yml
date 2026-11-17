@@ -88,7 +88,9 @@ jobs:
             TARGET=""
             NOME="gymapp-${{ github.run_number }}.apk"
           fi
-          flutter build apk --release --build-number=${{ github.run_number }} $TARGET
+          # BUILD_NUMBER serve all'app per capire se c'è un aggiornamento.
+          flutter build apk --release --build-number=${{ github.run_number }} \
+            --dart-define=BUILD_NUMBER=${{ github.run_number }} $TARGET
           mkdir -p uscita
           cp build/app/outputs/flutter-apk/app-release.apk "uscita/$NOME"
           ls -la uscita

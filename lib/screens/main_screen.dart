@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../amici/backup_servizio.dart';
 import '../db/database_helper.dart';
+import '../services/aggiornamenti.dart';
 import '../services/promemoria.dart';
 import '../state/sessione_allenamento.dart';
 import '../widgets/dialogo_azioni.dart';
@@ -35,6 +36,8 @@ class _MainScreenState extends State<MainScreen> {
     Promemoria.ripianifica();
     // Backup nel cloud se l'ultimo è di più di un giorno fa (se attivo).
     BackupServizio.istanza.backupSeVecchio();
+    // C'è una build nuova su GitHub? Se sì, notifica e banner in Home.
+    Aggiornamenti.controllaInSilenzio();
   }
 
   /// Dà una categoria agli esercizi rimasti "Altro" quando il nome è
