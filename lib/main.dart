@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'data/immagini_esercizi.dart';
 import 'db/database_helper.dart';
 import 'screens/main_screen.dart';
 import 'theme/app_theme.dart';
@@ -68,6 +69,7 @@ class _AvvioState extends State<_Avvio> {
       await _passo('Database', () async {
         await DatabaseHelper.instance.database;
       });
+      await _passo('Immagini scelte', caricaImmaginiScelte);
       if (mounted) setState(() => _pronto = true);
     } catch (e, s) {
       if (mounted) setState(() => _errore = '$e\n\n$s');

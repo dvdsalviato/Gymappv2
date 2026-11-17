@@ -2,6 +2,10 @@
 // assets/esercizi/ (due fotogrammi per esercizio: <nome>_0.jpg e <nome>_1.jpg).
 // Immagini da free-exercise-db (github.com/yuhonas/free-exercise-db), public domain.
 
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'catalogo_esercizi.dart';
 import 'classificatore.dart';
 import 'macchinari.dart';
@@ -339,7 +343,6 @@ const Map<String, String> _sinonimi = {
   'cavi': 'cavo',
   'cable': 'cavo',
   'cables': 'cavo',
-  'pulley': 'cavo',
   'puleggia': 'cavo',
   'manubri': 'manubrio',
   'dumbbell': 'manubrio',
@@ -403,6 +406,14 @@ const Map<String, String> _sinonimi = {
   'gluteo': 'glute',
 };
 
+/// Parole che dicono l'attrezzo ma non il movimento ("macchina", "cavo"...):
+/// contano poco, altrimenti "Calf machine" finirebbe su "Crunch alla macchina".
+const Set<String> _paroleGeneriche = {
+  'macchina', 'cavo', 'manubrio', 'bilanciere', 'panca', 'presa', 'seduto', 'piedi',
+  'alto', 'basso', 'larga', 'stretta', 'singolo', 'braccio', 'multipower', 'smith', 'elastico',
+  'avanti',
+};
+
 const Set<String> _paroleVuote = {
   'con', 'di', 'a', 'da', 'al', 'ai', 'alla', 'alle', 'il', 'la', 'le', 'lo', 'in', 'su', 'per',
   'e', 'the', 'and', 'with', 'of', 'to', 'on',
@@ -437,9 +448,54 @@ List<_VoceImmagine> _voci() {
 
 final Map<String, String?> _cache = {};
 
+/// Immagini scelte a mano (chiave: nome senza macchinario, normalizzato;
+/// valore: nome base dell'immagine, oppure '' per "nessuna immagine").
+final Map<String, String> _scelte = {};
+const _chiaveScelte = 'immagini_scelte';
+
+String _chiaveScelta(String nome) => normalizzaNome(separaMacchinario(nome).base);
+
+/// Da chiamare all'avvio: carica le immagini scelte a mano.
+Future<void> caricaImmaginiScelte() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final testo = prefs.getString(_chiaveScelte);
+    if (testo == null) return;
+    final mappa = jsonDecode(testo) as Map<String, dynamic>;
+    _scelte
+      ..clear()
+      ..addAll(mappa.map((k, v) => MapEntry(k, '$v')));
+    _cache.clear();
+  } catch (_) {}
+}
+
+/// Salva l'immagine scelta per un esercizio ([base] null = nessuna immagine).
+/// Vale per quell'esercizio su qualsiasi macchinario.
+Future<void> scegliImmagine(String nome, String? base) async {
+  _scelte[_chiaveScelta(nome)] = base ?? '';
+  _cache.clear();
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_chiaveScelte, jsonEncode(_scelte));
+}
+
+/// Torna all'immagine scelta in automatico.
+Future<void> ripristinaImmagine(String nome) async {
+  _scelte.remove(_chiaveScelta(nome));
+  _cache.clear();
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(_chiaveScelte, jsonEncode(_scelte));
+}
+
+bool immagineSceltaAMano(String nome) => _scelte.containsKey(_chiaveScelta(nome));
+
+/// Immagine del catalogo per un esercizio del catalogo (per il selettore).
+String? immagineDelCatalogo(String nomeCatalogo) => _immaginiCatalogo[nomeCatalogo];
+
 /// Nome base dell'immagine per un esercizio (anche con nome personalizzato:
 /// "Lat machine", "Curl panca scott EZ"...). Null se non c'è niente di adatto.
 String? immagineEsercizio(String nome) {
+  final scelta = _scelte[_chiaveScelta(nome)];
+  if (scelta != null) return scelta.isEmpty ? null : scelta;
   if (_cache.containsKey(nome)) return _cache[nome];
   final risultato = _cerca(nome);
   _cache[nome] = risultato;
@@ -464,13 +520,21 @@ String? _cerca(String nomeCompleto) {
   for (final v in _voci()) {
     for (final lista in [v.parole, v.alias]) {
       if (lista.isEmpty) continue;
-      var trovate = 0;
+      var trovate = 0.0;
+      var specifiche = 0;
       for (final p in q) {
-        if (lista.any((c) => c == p || parolaSimile(p, c))) trovate++;
+        if (lista.any((c) => c == p || parolaSimile(p, c))) {
+          final generica = _paroleGeneriche.contains(p);
+          trovate += generica ? 0.3 : 1;
+          if (!generica) specifiche++;
+        }
       }
-      if (trovate == 0) continue;
+      // Serve almeno una parola che dica il movimento, non solo l'attrezzo.
+      if (specifiche == 0) continue;
+      double peso(List<String> parole) =>
+          parole.fold(0.0, (a, p) => a + (_paroleGeneriche.contains(p) ? 0.3 : 1));
       // Somiglianza tra i due insiemi di parole (1 = identici).
-      final punteggio = 2 * trovate / (q.length + lista.length);
+      final punteggio = 2 * trovate / (peso(q) + peso(lista));
       if (punteggio > migliore) {
         migliore = punteggio;
         scelta = v.base;

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/immagini_esercizi.dart';
+import 'selettore_catalogo.dart';
 import '../theme/app_theme.dart';
 
 /// Mostra come si esegue l'esercizio alternando due foto (inizio e fine del
@@ -125,6 +126,22 @@ class _AnimazioneEsercizioState extends State<AnimazioneEsercizio> {
                   ),
                 ),
                 const SizedBox(height: 16),
+                TextButton.icon(
+                  onPressed: () async {
+                    final cambiata = await cambiaImmagineEsercizio(ctx, widget.nomeEsercizio);
+                    if (!cambiata) return;
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    if (mounted) {
+                      setState(_prepara);
+                      _precarica();
+                    }
+                  },
+                  icon: const Icon(Icons.swap_horiz, color: Colors.white70),
+                  label: const Text(
+                    'Immagine sbagliata? Cambiala',
+                    style: TextStyle(color: Colors.white70, decoration: TextDecoration.none),
+                  ),
+                ),
                 Text(
                   'Pizzica per ingrandire · tocca per chiudere',
                   style: TextStyle(
@@ -288,4 +305,60 @@ class MiniaturaEsercizio extends StatelessWidget {
       ),
     );
   }
+}
+
+
+/// Fa scegliere l'immagine giusta per un esercizio: dal catalogo, nessuna,
+/// oppure di nuovo quella automatica. Vero se è cambiato qualcosa.
+Future<bool> cambiaImmagineEsercizio(BuildContext context, String nomeEsercizio) async {
+  final azione = await showModalBottomSheet<String>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Scegli dal catalogo'),
+              subtitle: const Text('Cerca l\'esercizio con il movimento giusto'),
+              onTap: () => Navigator.pop(ctx, 'catalogo'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.hide_image_outlined),
+              title: const Text('Nessuna immagine'),
+              onTap: () => Navigator.pop(ctx, 'nessuna'),
+            ),
+            if (immagineSceltaAMano(nomeEsercizio))
+              ListTile(
+                leading: const Icon(Icons.auto_fix_high),
+                title: const Text('Torna a quella automatica'),
+                onTap: () => Navigator.pop(ctx, 'automatica'),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
+  if (azione == null || !context.mounted) return false;
+  if (azione == 'nessuna') {
+    await scegliImmagine(nomeEsercizio, null);
+    return true;
+  }
+  if (azione == 'automatica') {
+    await ripristinaImmagine(nomeEsercizio);
+    return true;
+  }
+  final scelto = await mostraCatalogoEsercizi(context);
+  if (scelto == null || !context.mounted) return false;
+  final base = immagineDelCatalogo(scelto.nome);
+  if (base == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('"${scelto.nome}" non ha un\'immagine: scegline un altro')),
+    );
+    return false;
+  }
+  await scegliImmagine(nomeEsercizio, base);
+  return true;
 }

@@ -7,6 +7,8 @@ import '../data/progressione.dart' show riposoConsigliato;
 import '../db/database_helper.dart';
 import '../models/esercizio.dart';
 import '../theme/app_theme.dart';
+import '../data/immagini_esercizi.dart';
+import '../widgets/animazione_esercizio.dart';
 import '../widgets/selettore_catalogo.dart';
 
 class EditEsercizioScreen extends StatefulWidget {
@@ -361,6 +363,35 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
               ),
               const SizedBox(height: 14),
               _sezioneMacchinario(),
+              const SizedBox(height: 14),
+              // Immagine dell'esecuzione: se quella trovata è sbagliata la cambi qui.
+              ValueListenableBuilder<TextEditingValue>(
+                valueListenable: _nomeCtrl,
+                builder: (context, valore, _) {
+                  final nome = valore.text.trim();
+                  final trovata = nome.isNotEmpty && immagineEsercizio(nome) != null;
+                  return Row(
+                    children: [
+                      MiniaturaEsercizio(nomeEsercizio: nome.isEmpty ? '-' : nome, dimensione: 56, aTempo: _aTempo),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          trovata ? 'Immagine dell\'esecuzione' : 'Nessuna immagine trovata',
+                          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: nome.isEmpty
+                            ? null
+                            : () async {
+                                if (await cambiaImmagineEsercizio(context, nome) && mounted) setState(() {});
+                              },
+                        child: Text(trovata ? 'Cambia' : 'Scegli'),
+                      ),
+                    ],
+                  );
+                },
+              ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _serieCtrl,

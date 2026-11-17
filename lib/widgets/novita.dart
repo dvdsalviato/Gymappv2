@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/app_theme.dart';
 
-const String versioneNovita = '3.2';
+const String versioneNovita = '3.3';
 const String _chiave = 'novita_viste';
 
 class _Novita {
@@ -15,6 +15,9 @@ class _Novita {
 }
 
 const List<_Novita> _elenco = [
+  _Novita(Icons.swap_horiz, 'Immagine sbagliata? Cambiala',
+      'Se la foto di un esercizio non è giusta, aprila a schermo intero (o modifica l\'esercizio) '
+          'e scegli quella corretta dal catalogo.'),
   _Novita(Icons.system_update, 'Aggiornamenti dall\'app',
       'Quando esce una nuova versione ti arriva una notifica e in Home compare "Aggiorna". '
           'Lo trovi anche nel Profilo.'),
