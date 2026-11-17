@@ -89,8 +89,23 @@ jobs:
             NOME="gymapp-${{ github.run_number }}.apk"
           fi
           # BUILD_NUMBER serve all'app per capire se c'è un aggiornamento.
-          flutter build apk --release --build-number=${{ github.run_number }} \
-            --dart-define=BUILD_NUMBER=${{ github.run_number }} $TARGET
+          # Fino a 3 tentativi: a volte il download dell'NDK arriva rovinato.
+          for TENTATIVO in 1 2 3; do
+            if flutter build apk --release --build-number=${{ github.run_number }} \
+                --dart-define=BUILD_NUMBER=${{ github.run_number }} $TARGET; then
+              break
+            fi
+            if [ "$TENTATIVO" = "3" ]; then
+              echo "::error::Build fallita dopo 3 tentativi"
+              exit 1
+            fi
+            echo "::warning::Build fallita (tentativo $TENTATIVO), riprovo tra 30 secondi"
+            # Via eventuali NDK scaricati a metà, così si riscaricano puliti.
+            for d in "${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"/ndk/*; do
+              [ -f "$d/source.properties" ] || rm -rf "$d"
+            done
+            sleep 30
+          done
           mkdir -p uscita
           cp build/app/outputs/flutter-apk/app-release.apk "uscita/$NOME"
           ls -la uscita
@@ -104,12 +119,22 @@ jobs:
   release:
     name: Pubblica nelle Releases
     needs: build
+    # Si pubblica anche se fallisce solo l'orologio: l'APK del telefono basta.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: apk
           merge-multiple: true
+
+      - name: Controllo APK del telefono
+        run: |
+          ls -la apk || true
+          if [ ! -f "apk/gymapp-${{ github.run_number }}.apk" ]; then
+            echo "::error::Manca l'APK del telefono: niente release"
+            exit 1
+          fi
 
       - uses: softprops/action-gh-release@v2
         with:
