@@ -17,6 +17,7 @@ import 'calendario_screen.dart';
 import 'mappa_muscolare_screen.dart';
 import 'medaglie_screen.dart';
 import 'workout_screen.dart';
+import '../widgets/scelta_modalita.dart';
 
 /// Home: prossimo allenamento, consigli del coach, la tua settimana e
 /// scorciatoie. Essenziale: il dettaglio sta in Progressi.
@@ -184,10 +185,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final esercizi = await DatabaseHelper.instance.getEsercizi(scheda.id!);
     if (esercizi.isEmpty || !mounted) return;
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => WorkoutScreen(esercizi: esercizi, nomeScheda: scheda.nome)),
-    );
+    await avviaAllenamento(context, esercizi: esercizi, nomeScheda: scheda.nome);
     Promemoria.ripianifica();
     if (mounted) {
       setState(() {});

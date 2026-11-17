@@ -136,7 +136,11 @@ class GymappApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([ThemeController.modalita, ThemeController.colore]),
+      animation: Listenable.merge([
+        ThemeController.modalita,
+        ThemeController.colore,
+        ThemeController.personalizzato,
+      ]),
       builder: (context, _) {
         final modalita = ThemeController.modalita.value;
         return MaterialApp(

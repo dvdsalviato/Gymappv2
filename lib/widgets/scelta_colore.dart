@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
 import '../theme/theme_controller.dart';
+import 'ruota_colori.dart';
 
 /// Scelta del colore principale dell'app.
 class SceltaColore extends StatelessWidget {
@@ -53,6 +54,44 @@ class SceltaColore extends StatelessWidget {
                       ),
                     ),
                   ),
+                // Colore libero: il cerchio dei colori.
+                Semantics(
+                  label: 'Colore personalizzato',
+                  button: true,
+                  selected: scelto == indiceColorePersonalizzato,
+                  child: GestureDetector(
+                    onTap: () => mostraRuotaColori(context),
+                    child: Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: scelto == indiceColorePersonalizzato
+                            ? null
+                            : const SweepGradient(colors: [
+                                Color(0xFFFF0000),
+                                Color(0xFFFFFF00),
+                                Color(0xFF00FF00),
+                                Color(0xFF00FFFF),
+                                Color(0xFF0000FF),
+                                Color(0xFFFF00FF),
+                                Color(0xFFFF0000),
+                              ]),
+                        color: scelto == indiceColorePersonalizzato ? AppColors.accento : null,
+                        border: Border.all(
+                          color: scelto == indiceColorePersonalizzato
+                              ? (scuro ? Colors.white : Colors.black)
+                              : Colors.transparent,
+                          width: 3,
+                        ),
+                      ),
+                      child: Icon(
+                        scelto == indiceColorePersonalizzato ? Icons.colorize : Icons.add,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ],

@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 
 /// Versione di cui si mostrano le novità. A ogni aggiornamento si cambiano
 /// versione ed elenco: si vedono SOLO le novità di questa versione.
-const String versioneNovita = '3.4';
+const String versioneNovita = '3.5';
 const String _chiave = 'novita_viste';
 
 class _Novita {
@@ -17,13 +17,12 @@ class _Novita {
 }
 
 const List<_Novita> _elenco = [
-  _Novita(Icons.palette_outlined, 'Scegli il colore dell\'app',
-      'Nel Profilo: lime (il nuovo predefinito, più morbido), verde fluo, menta, azzurro o arancio.'),
-  _Novita(Icons.psychology_outlined, 'Coach più preciso',
-      'Le serie a settimana per muscolo ora si calcolano dalle tue schede, non dagli ultimi giorni. '
-          'Stalli e progressi mostrano le tue serie vere (kg × ripetizioni).'),
-  _Novita(Icons.insights, 'Progressi più chiari',
-      'In "Forza per esercizio" vedi la tua miglior serie dell\'ultimo mese al posto del massimale stimato.'),
+  _Novita(Icons.table_rows_outlined, 'Modalità tabella (in prova)',
+      'All\'inizio dell\'allenamento scegli "Guidato" o "Tabella": tutte le serie in una pagina, '
+          'spunti e parte il recupero. Non ti convince? Spegnila dal Profilo.'),
+  _Novita(Icons.colorize, 'Il tuo colore',
+      'Nel Profilo, tocca il cerchio arcobaleno e scegli qualsiasi colore: l\'app lo adatta '
+          'per restare leggibile in tema chiaro e scuro.'),
 ];
 
 /// Mostra le novità una sola volta per versione. [primoAvvio] true: chi

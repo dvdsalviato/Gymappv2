@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,9 +23,45 @@ const List<ColoreApp> paletteApp = [
   ColoreApp('Arancio', Color(0xFFFB923C), Color(0xFFD35400)),
 ];
 
+/// Indice che indica "colore scelto con il cerchio".
+const int indiceColorePersonalizzato = 5;
+
 ColoreApp get coloreAppAttuale {
   final i = ThemeController.colore.value;
+  if (i == indiceColorePersonalizzato) return coloreDaBase(Color(ThemeController.personalizzato.value));
   return paletteApp[(i >= 0 && i < paletteApp.length) ? i : 0];
+}
+
+double _contrasto(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+}
+
+/// Da un colore qualsiasi ricava le due varianti leggibili:
+/// - tema scuro: schiarito finché il testo nero sopra si legge bene;
+/// - tema chiaro: la luminosità che si legge sia sul bianco sia col testo nero.
+ColoreApp coloreDaBase(Color base) {
+  final hsl = HSLColor.fromColor(base);
+  Color conLuce(double l) => hsl.withLightness(math.min(1.0, math.max(0.0, l))).toColor();
+
+  var scuro = conLuce(hsl.lightness);
+  for (var l = hsl.lightness; l <= 0.96; l += 0.02) {
+    scuro = conLuce(l);
+    if (_contrasto(scuro, Colors.black) >= 8 && _contrasto(scuro, const Color(0xFF151519)) >= 6) break;
+  }
+
+  var chiaro = conLuce(0.35);
+  var migliore = 0.0;
+  for (var l = 0.15; l <= 0.65; l += 0.01) {
+    final c = conLuce(l);
+    final m = math.min(_contrasto(c, Colors.white), _contrasto(c, Colors.black));
+    if (m > migliore) {
+      migliore = m;
+      chiaro = c;
+    }
+  }
+  return ColoreApp('Personalizzato', scuro, chiaro);
 }
 
 class AppColors {

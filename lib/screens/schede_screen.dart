@@ -15,6 +15,7 @@ import '../theme/app_theme.dart';
 import 'scanner_qr_screen.dart';
 import 'scheda_dettaglio_screen.dart';
 import 'workout_screen.dart';
+import '../widgets/scelta_modalita.dart';
 
 class SchedeScreen extends StatefulWidget {
   const SchedeScreen({super.key});
@@ -224,12 +225,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
     }
     GestoreSessione.inPausa = null;
     if (mounted) {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => WorkoutScreen(esercizi: esercizi, nomeScheda: scheda.nome),
-        ),
-      );
+      await avviaAllenamento(context, esercizi: esercizi, nomeScheda: scheda.nome);
       Promemoria.ripianifica();
       if (mounted) setState(() {});
     }
