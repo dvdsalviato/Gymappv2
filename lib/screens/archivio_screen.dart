@@ -64,8 +64,8 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
         content: Text(
           serie == 0
               ? '"${s.nome}" verrà eliminata definitivamente.'
-              : '"${s.nome}" verrà eliminata definitivamente insieme al suo storico '
-                  '($serie ${serie == 1 ? 'serie registrata' : 'serie registrate'}, con record e grafici).',
+              : '"${s.nome}" verrà eliminata definitivamente. Le $serie serie già fatte restano '
+                  'nello storico: record e grafici non si perdono.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),

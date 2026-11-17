@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/app_theme.dart';
 
-const String versioneNovita = '2.0';
+const String versioneNovita = '3.1';
 const String _chiave = 'novita_viste';
 
 class _Novita {
@@ -15,22 +15,34 @@ class _Novita {
 }
 
 const List<_Novita> _elenco = [
+  _Novita(Icons.precision_manufacturing_outlined, 'Macchinari distinti',
+      'Indica il marchio (Technogym, Panatta, Matrix…) per macchine e cavi: ogni macchina ha il suo storico, '
+          'i suoi record e il suo carico consigliato, perché le resistenze non sono uguali.'),
+  _Novita(Icons.psychology_outlined, 'Il coach',
+      'Legge i tuoi allenamenti e ti avvisa se sei fermo su un esercizio, se serve una settimana di scarico '
+          'o se un muscolo fa troppe poche serie. Lo trovi in Home.'),
+  _Novita(Icons.insights, 'Progressi',
+      'Al posto di Cibo: costanza delle ultime 12 settimane, serie per muscolo, massimali stimati e record.'),
+  _Novita(Icons.link, 'Lo storico non si perde più',
+      'Ogni esercizio esiste una volta sola: rinominalo quando vuoi, i progressi lo seguono. Eliminare un '
+          'esercizio o una scheda non cancella più le serie fatte.'),
   _Novita(Icons.auto_awesome, 'Prossimo allenamento in Home',
       'La Home ti propone la scheda che tocca, seguendo il tuo ordine. Un tocco e parti.'),
   _Novita(Icons.photo_library_outlined, 'Foto degli esercizi',
-      'Durante l\'allenamento vedi come si esegue il movimento. Toccala per vederla a schermo intero.'),
+      'Vedi come si esegue il movimento, anche durante il riposo per il prossimo esercizio. '
+          'Toccala per vederla a schermo intero.'),
+  _Novita(Icons.linear_scale, 'Notifica con la barra',
+      'Durante il riposo la notifica mostra il tempo che scorre su una barra, come un brano su Spotify.'),
+  _Novita(Icons.table_rows_outlined, 'Serie della sessione',
+      'Durante l\'allenamento apri la tabella di tutte le serie fatte e correggi un carico o una ripetizione al volo.'),
   _Novita(Icons.local_fire_department_outlined, 'Riscaldamento e dischi',
       'Alla prima serie trovi le serie di avvicinamento e il calcolo dei dischi da caricare per lato.'),
   _Novita(Icons.ios_share, 'Riepilogo da condividere',
-      'A fine allenamento vedi il confronto con l\'ultima volta e puoi condividere la card come immagine.'),
-  _Novita(Icons.notifications_active_outlined, 'Promemoria',
+      'A fine allenamento vedi il confronto con l\'ultima volta e condividi la card come immagine.'),
+  _Novita(Icons.notifications_active_outlined, 'Promemoria e riepilogo della domenica',
       'Scegli giorni e ora nel Profilo: ti avviso quando è ora di allenarti e quale scheda tocca.'),
-  _Novita(Icons.archive_outlined, 'Archivio schede',
-      'Archivia le schede che non usi più: spariscono dall\'elenco ma record e grafici restano.'),
-  _Novita(Icons.swap_vert, 'Schede su misura',
-      'Riordinale tenendole premute, rinominale dalla matita, e nel dettaglio vedi durata stimata e muscoli.'),
-  _Novita(Icons.palette_outlined, 'Grafica rifinita',
-      'Font inclusi nell\'app, tema chiaro più leggibile e dialoghi più puliti.'),
+  _Novita(Icons.archive_outlined, 'Archivio e schede su misura',
+      'Archivia le schede che non usi, riordinale tenendole premute, rinominale dalla matita.'),
 ];
 
 /// Mostra le novità una sola volta per versione. [primoAvvio] true: chi

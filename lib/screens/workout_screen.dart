@@ -22,6 +22,7 @@ import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
 import '../widgets/animazione_esercizio.dart';
 import '../widgets/riscaldamento.dart';
+import '../widgets/tabella_sessione.dart';
 import '../widgets/campo_numero.dart';
 import '../widgets/dialogo_azioni.dart';
 import '../data/statistiche.dart';
@@ -72,6 +73,12 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   int _ultimoSecondoMostrato = -1;
   bool _dialogPausa = false;
   String _firmaNotifica = '';
+  // Ultimo contenuto della notifica, per aggiornare solo la barra ogni secondo.
+  String _notificaTitolo = '';
+  String _notificaTesto = '';
+  DateTime? _notificaFinoA;
+  bool _notificaSaltabile = false;
+  int _ultimoSecondoNotifica = -1;
   int _secondiRimanenti = 0;
   int _secondiTotali = 0;
 
@@ -95,7 +102,10 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     OrologioSync.onMessaggio = _gestisciMessaggioOrologio;
     OrologioSync.avvia();
     WidgetsBinding.instance.addObserver(this);
-    _vigilanza = Timer.periodic(const Duration(milliseconds: 500), (_) => _controllaFineRiposo());
+    _vigilanza = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      _controllaFineRiposo();
+      _aggiornaBarraNotifica();
+    });
     if (widget.ripresaDa != null) {
       GestoreSessione.inizioAllenamento ??= DateTime.now();
       _coda = List.of(widget.ripresaDa!.coda);
@@ -289,6 +299,25 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     }
   }
 
+  /// Fa avanzare la barra della notifica una volta al secondo (funziona anche
+  /// a schermo spento: lo chiama il timer di controllo, non l'animazione).
+  void _aggiornaBarraNotifica() {
+    final finoA = _notificaFinoA;
+    if (!mounted || finoA == null || _dialogPausa || _secondiTotali <= 0) return;
+    if (_fase != FaseAllenamento.riposo && _fase != FaseAllenamento.inCorso) return;
+    final rimanenti = _secondiResiduiPrecisi().ceil();
+    if (rimanenti == _ultimoSecondoNotifica || rimanenti < 0) return;
+    _ultimoSecondoNotifica = rimanenti;
+    NotificaAllenamento.aggiorna(
+      titolo: _notificaTitolo,
+      testo: _notificaTesto,
+      finoA: finoA,
+      saltabile: _notificaSaltabile,
+      progresso: _secondiTotali - rimanenti,
+      totale: _secondiTotali,
+    );
+  }
+
   void _onTickRiposo() {
     _controllaFineRiposo();
     final s = _secondiResiduiPrecisi().ceil();
@@ -470,7 +499,19 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
     final firma = '$_fase|$titolo|$testo|${finoA?.millisecondsSinceEpoch}|$saltabile';
     if (firma == _firmaNotifica) return;
     _firmaNotifica = firma;
-    NotificaAllenamento.aggiorna(titolo: titolo, testo: testo, finoA: finoA, saltabile: saltabile);
+    _notificaTitolo = titolo;
+    _notificaTesto = testo;
+    _notificaFinoA = finoA;
+    _notificaSaltabile = saltabile;
+    _ultimoSecondoNotifica = -1;
+    NotificaAllenamento.aggiorna(
+      titolo: titolo,
+      testo: testo,
+      finoA: finoA,
+      saltabile: saltabile,
+      progresso: finoA == null ? null : _secondiTotali - _secondiResiduiPrecisi().ceil(),
+      totale: finoA == null ? null : _secondiTotali,
+    );
     _salvaSuDisco();
 
     final String faseOrologio;
@@ -711,6 +752,11 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
           ),
           actions: [
             IconButton(
+              icon: const Icon(Icons.table_rows_outlined),
+              tooltip: 'Serie della sessione',
+              onPressed: _apriTabella,
+            ),
+            IconButton(
               icon: const Icon(Icons.pause),
               tooltip: 'Metti in pausa',
               onPressed: _mettiInPausa,
@@ -725,6 +771,17 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
         ),
       ),
     );
+  }
+
+  /// Tabella di tutte le serie fatte finora, da correggere al volo.
+  Future<void> _apriTabella() async {
+    final inizio = GestoreSessione.inizioAllenamento;
+    if (inizio == null) return;
+    final cambiato = await mostraTabellaSessione(context, inizio: inizio, esercizi: widget.esercizi);
+    if (cambiato && mounted && _coda.isNotEmpty) {
+      await _caricaUltimoStorico();
+      if (mounted) setState(() {});
+    }
   }
 
   Widget _suggerimento(String testo) {
@@ -985,6 +1042,14 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                     _prossimoEsercizio!.nome,
                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
+                  ),
+                  // Come si esegue: lo ripassi mentre recuperi.
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: AnimazioneEsercizio(
+                      nomeEsercizio: _prossimoEsercizio!.nome,
+                      segnaposto: const SizedBox.shrink(),
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(

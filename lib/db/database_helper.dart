@@ -69,6 +69,24 @@ class DatabaseHelper {
         if (!colonneSchede.any((c) => c['name'] == 'archiviata')) {
           await db.execute('ALTER TABLE schede ADD COLUMN archiviata INTEGER NOT NULL DEFAULT 0');
         }
+        // Gymapp 3: catalogo degli esercizi (ogni esercizio esiste una volta sola)
+        // ed esercizi "rimossi" che restano solo per non perdere lo storico.
+        await db.execute(
+          'CREATE TABLE IF NOT EXISTS catalogo ('
+          'id INTEGER PRIMARY KEY AUTOINCREMENT, '
+          'nome TEXT NOT NULL, '
+          'chiave TEXT NOT NULL UNIQUE, '
+          'categoria TEXT NOT NULL DEFAULT \'Altro\', '
+          'a_tempo INTEGER NOT NULL DEFAULT 0)',
+        );
+        final colonneEsercizi = await db.rawQuery('PRAGMA table_info(esercizi)');
+        if (!colonneEsercizi.any((c) => c['name'] == 'catalogo_id')) {
+          await db.execute('ALTER TABLE esercizi ADD COLUMN catalogo_id INTEGER');
+        }
+        if (!colonneEsercizi.any((c) => c['name'] == 'rimosso')) {
+          await db.execute('ALTER TABLE esercizi ADD COLUMN rimosso INTEGER NOT NULL DEFAULT 0');
+        }
+        await _collegaCatalogo(db);
       },
       onCreate: _onCreate,
       // Nessuna cancellazione: le modifiche allo schema vanno fatte in modo
@@ -210,6 +228,7 @@ class DatabaseHelper {
           'superset': e['superset'] ?? 0,
         });
       }
+      await _collegaCatalogo(txn);
       return id;
     });
   }
@@ -235,7 +254,12 @@ class DatabaseHelper {
         ..['data_creazione'] = DateTime.now().toIso8601String()
         ..['ordine'] = await _prossimoOrdine(txn);
       final nuovoId = await txn.insert('schede', scheda);
-      final esercizi = await txn.query('esercizi', where: 'scheda_id = ?', whereArgs: [schedaId], orderBy: 'ordine ASC');
+      final esercizi = await txn.query(
+        'esercizi',
+        where: 'scheda_id = ? AND rimosso = 0',
+        whereArgs: [schedaId],
+        orderBy: 'ordine ASC',
+      );
       for (final e in esercizi) {
         final copia = Map<String, Object?>.from(e)
           ..remove('id')
@@ -246,9 +270,48 @@ class DatabaseHelper {
     });
   }
 
+  /// Elimina una scheda senza perdere lo storico: gli esercizi già fatti e le
+  /// sessioni passano in una scheda nascosta ("Schede eliminate"), così record,
+  /// grafici e calendario restano. Si cancellano solo gli esercizi mai fatti.
   Future<int> deleteScheda(int id) async {
     final db = await database;
-    return await db.delete('schede', where: 'id = ?', whereArgs: [id]);
+    return await db.transaction((txn) async {
+      final conStorico = await txn.rawQuery(
+        'SELECT DISTINCT esercizi.id AS id FROM esercizi '
+        'JOIN storico ON storico.esercizio_id = esercizi.id WHERE esercizi.scheda_id = ?',
+        [id],
+      );
+      final sessioni = Sqflite.firstIntValue(
+            await txn.rawQuery('SELECT COUNT(*) FROM sessioni WHERE scheda_id = ?', [id]),
+          ) ??
+          0;
+      if (conStorico.isNotEmpty || sessioni > 0) {
+        final deposito = await _schedaDeposito(txn);
+        for (final r in conStorico) {
+          await txn.update(
+            'esercizi',
+            {'scheda_id': deposito, 'rimosso': 1, 'superset': 0},
+            where: 'id = ?',
+            whereArgs: [r['id']],
+          );
+        }
+        await txn.update('sessioni', {'scheda_id': deposito}, where: 'scheda_id = ?', whereArgs: [id]);
+      }
+      return await txn.delete('schede', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
+  /// Scheda nascosta che custodisce lo storico delle schede eliminate
+  /// (archiviata = 2: non compare né tra le schede né nell'archivio).
+  Future<int> _schedaDeposito(DatabaseExecutor db) async {
+    final trovata = await db.query('schede', where: 'archiviata = 2', limit: 1);
+    if (trovata.isNotEmpty) return trovata.first['id'] as int;
+    return await db.insert('schede', {
+      'nome': 'Schede eliminate',
+      'data_creazione': DateTime.now().toIso8601String(),
+      'ordine': 0,
+      'archiviata': 2,
+    });
   }
 
   /// Schede attive (o, con [archiviate], quelle in archivio).
@@ -266,7 +329,9 @@ class DatabaseHelper {
   /// Numero di esercizi di ogni scheda, con una sola query.
   Future<Map<int, int>> contaEserciziPerScheda() async {
     final db = await database;
-    final righe = await db.rawQuery('SELECT scheda_id AS id, COUNT(*) AS c FROM esercizi GROUP BY scheda_id');
+    final righe = await db.rawQuery(
+      'SELECT scheda_id AS id, COUNT(*) AS c FROM esercizi WHERE rimosso = 0 GROUP BY scheda_id',
+    );
     return {for (final r in righe) r['id'] as int: (r['c'] as num).toInt()};
   }
 
@@ -290,7 +355,7 @@ class DatabaseHelper {
   Future<int> contaEsercizi(int schedaId) async {
     final db = await database;
     final result = await db.rawQuery(
-      'SELECT COUNT(*) as c FROM esercizi WHERE scheda_id = ?',
+      'SELECT COUNT(*) as c FROM esercizi WHERE scheda_id = ? AND rimosso = 0',
       [schedaId],
     );
     return Sqflite.firstIntValue(result) ?? 0;
@@ -298,23 +363,168 @@ class DatabaseHelper {
 
   // ---- ESERCIZI ----
 
+  /// Nuovo esercizio: viene collegato al catalogo (se esiste già con un nome
+  /// scritto in modo diverso si usa quello, così lo storico è unico).
   Future<int> insertEsercizio(Esercizio esercizio) async {
     final db = await database;
-    final map = esercizio.toMap()..remove('id');
-    return await db.insert('esercizi', map);
+    return await db.transaction((txn) async {
+      final voce = await _voceCatalogo(txn, esercizio.nome, esercizio.categoria, esercizio.aTempo);
+      final map = esercizio.toMap()
+        ..remove('id')
+        ..['nome'] = voce.nome
+        ..['catalogo_id'] = voce.id;
+      return await txn.insert('esercizi', map);
+    });
   }
 
+  /// Salva le modifiche a un esercizio. Se cambia il nome, cambia nel catalogo:
+  /// tutte le schede che lo usano prendono il nuovo nome e lo storico lo segue.
+  /// Se il nuovo nome è quello di un altro esercizio, i due storici si uniscono.
+  /// Restituisce quante altre schede sono state aggiornate.
   Future<int> updateEsercizio(Esercizio esercizio) async {
     final db = await database;
-    // Il superset si cambia solo con setSuperset: una modifica o un riordino
-    // non lo deve mai azzerare per sbaglio.
-    final campi = esercizio.toMap()..remove('superset');
-    return await db.update(
+    return await db.transaction((txn) async {
+      final righe = await txn.query('esercizi', where: 'id = ?', whereArgs: [esercizio.id]);
+      if (righe.isEmpty) return 0;
+      var catalogoId = righe.first['catalogo_id'] as int?;
+      if (catalogoId == null) {
+        catalogoId = (await _voceCatalogo(
+          txn,
+          righe.first['nome'] as String,
+          (righe.first['categoria'] as String?) ?? 'Altro',
+          (righe.first['a_tempo'] as int?) == 1,
+        ))
+            .id;
+        await txn.update('esercizi', {'catalogo_id': catalogoId}, where: 'id = ?', whereArgs: [esercizio.id]);
+      }
+      final nuovaChiave = normalizzaNome(esercizio.nome);
+      final altro = await txn.query('catalogo', where: 'chiave = ? AND id != ?', whereArgs: [nuovaChiave, catalogoId]);
+      var nome = esercizio.nome.trim();
+      if (altro.isNotEmpty) {
+        // Stesso nome di un altro esercizio: si uniscono.
+        final idAltro = altro.first['id'] as int;
+        nome = altro.first['nome'] as String;
+        await txn.update('esercizi', {'catalogo_id': idAltro}, where: 'catalogo_id = ?', whereArgs: [catalogoId]);
+        await txn.delete('catalogo', where: 'id = ?', whereArgs: [catalogoId]);
+        catalogoId = idAltro;
+      } else {
+        await txn.update('catalogo', {'nome': nome, 'chiave': nuovaChiave}, where: 'id = ?', whereArgs: [catalogoId]);
+      }
+      await txn.update(
+        'catalogo',
+        {'categoria': esercizio.categoria, 'a_tempo': esercizio.aTempo ? 1 : 0},
+        where: 'id = ?',
+        whereArgs: [catalogoId],
+      );
+      // Nome, gruppo muscolare e tipo valgono per l'esercizio ovunque sia usato.
+      final altreSchede = await txn.update(
+        'esercizi',
+        {'nome': nome, 'categoria': esercizio.categoria, 'a_tempo': esercizio.aTempo ? 1 : 0},
+        where: 'catalogo_id = ? AND id != ? AND rimosso = 0',
+        whereArgs: [catalogoId, esercizio.id],
+      );
+      await txn.update(
+        'esercizi',
+        {'nome': nome, 'categoria': esercizio.categoria, 'a_tempo': esercizio.aTempo ? 1 : 0},
+        where: 'catalogo_id = ? AND rimosso = 1',
+        whereArgs: [catalogoId],
+      );
+      // Il superset si cambia solo con setSuperset: una modifica o un riordino
+      // non lo deve mai azzerare per sbaglio.
+      final campi = esercizio.toMap()
+        ..remove('superset')
+        ..['nome'] = nome
+        ..['catalogo_id'] = catalogoId;
+      await txn.update('esercizi', campi, where: 'id = ?', whereArgs: [esercizio.id]);
+      return altreSchede;
+    });
+  }
+
+  /// L'esercizio passa a un altro macchinario (o nome) ma le serie fatte finora
+  /// restano al vecchio: nella scheda entra un esercizio nuovo con storico
+  /// suo, il vecchio resta nascosto con il suo storico. Restituisce il nuovo id.
+  Future<int> separaEsercizio(Esercizio aggiornato) async {
+    final db = await database;
+    return await db.transaction((txn) async {
+      final righe = await txn.query('esercizi', where: 'id = ?', whereArgs: [aggiornato.id]);
+      if (righe.isEmpty) return -1;
+      final vecchio = righe.first;
+      final voce = await _voceCatalogo(txn, aggiornato.nome, aggiornato.categoria, aggiornato.aTempo);
+      final nuovo = aggiornato.toMap()
+        ..remove('id')
+        ..['nome'] = voce.nome
+        ..['catalogo_id'] = voce.id
+        ..['superset'] = vecchio['superset'] ?? 0;
+      final id = await txn.insert('esercizi', nuovo);
+      await txn.update('esercizi', {'rimosso': 1, 'superset': 0}, where: 'id = ?', whereArgs: [aggiornato.id]);
+      return id;
+    });
+  }
+
+  /// Voce del catalogo per [nome] (creata se manca).
+  Future<({int id, String nome})> _voceCatalogo(
+    DatabaseExecutor db,
+    String nome,
+    String categoria,
+    bool aTempo,
+  ) async {
+    final chiave = normalizzaNome(nome);
+    final trovata = await db.query('catalogo', where: 'chiave = ?', whereArgs: [chiave], limit: 1);
+    if (trovata.isNotEmpty) {
+      return (id: trovata.first['id'] as int, nome: trovata.first['nome'] as String);
+    }
+    final id = await db.insert('catalogo', {
+      'nome': nome.trim(),
+      'chiave': chiave,
+      'categoria': categoria,
+      'a_tempo': aTempo ? 1 : 0,
+    });
+    return (id: id, nome: nome.trim());
+  }
+
+  /// Collega al catalogo gli esercizi che non lo sono ancora (dati vecchi,
+  /// backup ripristinati, programmi pronti). I nomi scritti in modo diverso
+  /// ("lat machine", "Lat Machine ") diventano un unico esercizio.
+  Future<void> _collegaCatalogo(DatabaseExecutor db) async {
+    final scollegati = await db.query(
       'esercizi',
-      campi,
-      where: 'id = ?',
-      whereArgs: [esercizio.id],
+      columns: ['id', 'nome', 'categoria', 'a_tempo'],
+      where: 'catalogo_id IS NULL',
+      orderBy: 'id DESC', // il nome scritto più di recente vince
     );
+    if (scollegati.isEmpty) return;
+    for (final r in scollegati) {
+      final nome = r['nome'] as String;
+      if (normalizzaNome(nome).isEmpty) continue;
+      final voce = await _voceCatalogo(
+        db,
+        nome,
+        (r['categoria'] as String?) ?? 'Altro',
+        (r['a_tempo'] as int?) == 1,
+      );
+      await db.update(
+        'esercizi',
+        {'catalogo_id': voce.id, 'nome': voce.nome},
+        where: 'id = ?',
+        whereArgs: [r['id']],
+      );
+    }
+  }
+
+  /// Ricostruisce da zero il catalogo (dopo il ripristino di un backup).
+  Future<void> ricostruisciCatalogo() async {
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.update('esercizi', {'catalogo_id': null});
+      await txn.delete('catalogo');
+      await _collegaCatalogo(txn);
+    });
+  }
+
+  /// Cambia solo la posizione di un esercizio nella scheda.
+  Future<void> aggiornaOrdineEsercizio(int id, int ordine) async {
+    final db = await database;
+    await db.update('esercizi', {'ordine': ordine}, where: 'id = ?', whereArgs: [id]);
   }
 
   /// Imposta il superset di un esercizio (0 = nessuno).
@@ -323,8 +533,17 @@ class DatabaseHelper {
     await db.update('esercizi', {'superset': supersetId}, where: 'id = ?', whereArgs: [esercizioId]);
   }
 
+  /// Toglie un esercizio dalla scheda. Se ha uno storico non si cancella:
+  /// resta nascosto, così serie, record e grafici non si perdono.
   Future<int> deleteEsercizio(int id) async {
     final db = await database;
+    final serie = Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM storico WHERE esercizio_id = ?', [id]),
+        ) ??
+        0;
+    if (serie > 0) {
+      return await db.update('esercizi', {'rimosso': 1, 'superset': 0}, where: 'id = ?', whereArgs: [id]);
+    }
     return await db.delete('esercizi', where: 'id = ?', whereArgs: [id]);
   }
 
@@ -332,7 +551,7 @@ class DatabaseHelper {
     final db = await database;
     final maps = await db.query(
       'esercizi',
-      where: 'scheda_id = ?',
+      where: 'scheda_id = ? AND rimosso = 0',
       whereArgs: [schedaId],
       orderBy: 'ordine ASC',
     );
@@ -449,6 +668,8 @@ class DatabaseHelper {
         }
       }
     });
+    // Gli id del catalogo del backup non valgono qui: si ricollega tutto per nome.
+    await ricostruisciCatalogo();
   }
 
   /// Il carico massimo registrato per ogni esercizio (esclusi quelli a tempo).
@@ -732,7 +953,7 @@ class DatabaseHelper {
           schedeNuove++;
         }
 
-        final esistenti = await txn.query('esercizi', where: 'scheda_id = ?', whereArgs: [schedaId]);
+        final esistenti = await txn.query('esercizi', where: 'scheda_id = ? AND rimosso = 0', whereArgs: [schedaId]);
         final idPerNome = <String, int>{
           for (final e in esistenti) (e['nome'] as String).toLowerCase(): e['id'] as int,
         };
@@ -830,6 +1051,7 @@ class DatabaseHelper {
         }
       }
     });
+    await _collegaCatalogo(db);
     return RisultatoImport(schedeNuove, eserciziNuovi, importate, doppioni);
   }
 
@@ -863,6 +1085,22 @@ class DatabaseHelper {
   }
 
   /// Corregge carico e ripetizioni (o durata) di una serie già registrata.
+  /// Serie registrate da [inizio] in poi (l'allenamento in corso), in ordine.
+  Future<List<Map<String, dynamic>>> getSerieDaData(DateTime inizio) async {
+    final db = await database;
+    return await db.rawQuery(
+      '''
+      SELECT storico.id AS id, storico.esercizio_id AS esercizio_id, storico.serie_numero AS serie_numero,
+             storico.carico AS carico, storico.rep AS rep, esercizi.nome AS nome, esercizi.a_tempo AS a_tempo
+      FROM storico
+      JOIN esercizi ON esercizi.id = storico.esercizio_id
+      WHERE storico.data >= ?
+      ORDER BY storico.id ASC
+      ''',
+      [inizio.toIso8601String()],
+    );
+  }
+
   Future<void> updateStorico(int id, {required double carico, required int rep}) async {
     final db = await database;
     await db.update('storico', {'carico': carico, 'rep': rep}, where: 'id = ?', whereArgs: [id]);
@@ -919,6 +1157,55 @@ class DatabaseHelper {
       risultato[r['categoria'] as String] = r['conteggio'] as int;
     }
     return risultato;
+  }
+
+  /// Serie con carico (non a tempo), dalla più vecchia: servono a Progressi
+  /// per massimali stimati e record.
+  Future<List<Map<String, dynamic>>> getSerieForza() async {
+    final db = await database;
+    return await db.rawQuery(
+      '''
+      SELECT esercizi.nome AS nome, esercizi.categoria AS categoria,
+             storico.carico AS carico, storico.rep AS rep, storico.data AS data
+      FROM storico
+      JOIN esercizi ON esercizi.id = storico.esercizio_id
+      WHERE esercizi.a_tempo = 0 AND storico.carico > 0 AND storico.rep > 0
+      ORDER BY storico.data ASC, storico.id ASC
+      ''',
+    );
+  }
+
+  /// Serie per gruppo muscolare in una finestra di giorni che finisce
+  /// [finoAGiorniFa] giorni fa (0 = oggi). Serve per confrontare le settimane.
+  Future<Map<String, int>> getSeriePerCategoriaTra({required int giorni, int finoAGiorniFa = 0}) async {
+    final db = await database;
+    final adesso = DateTime.now();
+    final fine = adesso.subtract(Duration(days: finoAGiorniFa)).toIso8601String();
+    final inizio = adesso.subtract(Duration(days: finoAGiorniFa + giorni)).toIso8601String();
+    final righe = await db.rawQuery(
+      '''
+      SELECT esercizi.categoria AS categoria, COUNT(*) AS conteggio
+      FROM storico
+      JOIN esercizi ON esercizi.id = storico.esercizio_id
+      WHERE storico.data >= ? AND storico.data < ?
+      GROUP BY esercizi.categoria
+      ''',
+      [inizio, fine],
+    );
+    return {for (final r in righe) r['categoria'] as String: (r['conteggio'] as num).toInt()};
+  }
+
+  /// Esercizi delle schede attive (nome e gruppo), per il coach.
+  Future<List<Map<String, dynamic>>> getEserciziSchedeAttive() async {
+    final db = await database;
+    return await db.rawQuery(
+      '''
+      SELECT DISTINCT esercizi.nome AS nome, esercizi.categoria AS categoria
+      FROM esercizi
+      JOIN schede ON schede.id = esercizi.scheda_id
+      WHERE schede.archiviata = 0 AND esercizi.rimosso = 0
+      ''',
+    );
   }
 
   // ---- SESSIONI (per il calendario presenze) ----

@@ -95,7 +95,8 @@ class _SchedeScreenState extends State<SchedeScreen> {
     );
   }
 
-  /// Eliminare cancella anche lo storico: se ce n'è, si propone di archiviare.
+  /// Elimina una scheda (lo storico resta). Se è già stata usata si propone
+  /// anche di archiviarla, per poterla riprendere.
   Future<void> _eliminaScheda(Scheda scheda) async {
     if (scheda.id == null) return;
     final serie = await DatabaseHelper.instance.contaSerieScheda(scheda.id!);
@@ -105,9 +106,8 @@ class _SchedeScreenState extends State<SchedeScreen> {
       titolo: 'Eliminare "${scheda.nome}"?',
       messaggio: serie == 0
           ? 'Verranno eliminati anche tutti i suoi esercizi.'
-          : 'Verranno eliminati anche i suoi esercizi e il loro storico '
-              '($serie ${serie == 1 ? 'serie registrata' : 'serie registrate'}, con record e grafici).\n\n'
-              'Se non la usi più ma vuoi tenere i progressi, archiviala.',
+          : 'La scheda sparisce, ma le $serie serie già fatte restano: record, grafici e '
+              'calendario non si perdono.\n\nSe pensi di riprenderla, archiviala: la ripristini quando vuoi.',
       chiudibile: true,
       azioni: [
         if (serie > 0)

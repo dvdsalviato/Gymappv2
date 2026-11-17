@@ -16,6 +16,7 @@ class _CardPromemoriaState extends State<CardPromemoria> {
   static const _nomi = ['L', 'M', 'M', 'G', 'V', 'S', 'D'];
   Set<int> _giorni = {};
   TimeOfDay _ora = const TimeOfDay(hour: 18, minute: 0);
+  bool _riepilogo = false;
   bool _caricato = false;
 
   @override
@@ -26,13 +27,14 @@ class _CardPromemoriaState extends State<CardPromemoria> {
       setState(() {
         _giorni = {...imp.giorni};
         _ora = imp.ora;
+        _riepilogo = imp.riepilogo;
         _caricato = true;
       });
     });
   }
 
   Future<void> _salva() async {
-    await Promemoria.salva(ImpostazioniPromemoria({..._giorni}, _ora));
+    await Promemoria.salva(ImpostazioniPromemoria({..._giorni}, _ora, riepilogo: _riepilogo));
   }
 
   Future<void> _scegliOra() async {
@@ -133,6 +135,22 @@ class _CardPromemoriaState extends State<CardPromemoria> {
               shape: const StadiumBorder(),
               foregroundColor: AppColors.accento,
               side: BorderSide(color: AppColors.accento.withValues(alpha: 0.6)),
+            ),
+          ),
+          const SizedBox(height: 6),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: _riepilogo,
+            onChanged: !_caricato
+                ? null
+                : (v) async {
+                    setState(() => _riepilogo = v);
+                    await _salva();
+                  },
+            title: const Text('Riepilogo della domenica', style: TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text(
+              'Alle 19 un avviso per guardare progressi e consigli del coach',
+              style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
             ),
           ),
         ],

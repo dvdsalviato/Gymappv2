@@ -4,6 +4,7 @@
 
 import 'catalogo_esercizi.dart';
 import 'classificatore.dart';
+import 'macchinari.dart';
 
 /// Nome nel catalogo -> nome base dell'immagine.
 const Map<String, String> _immaginiCatalogo = {
@@ -451,7 +452,9 @@ List<String> fotogrammiEsercizio(String base) => [
       'assets/esercizi/${base}_1.jpg',
     ];
 
-String? _cerca(String nome) {
+String? _cerca(String nomeCompleto) {
+  // Il macchinario ("· Technogym") non cambia il movimento: si ignora.
+  final nome = separaMacchinario(nomeCompleto).base;
   final diretta = _immaginiCatalogo[nome];
   if (diretta != null) return diretta;
   final q = _parole(nome);

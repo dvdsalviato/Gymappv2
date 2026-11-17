@@ -2,37 +2,23 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
-import '../data/contenuti.dart';
+import '../data/coach.dart';
 import '../data/medaglie.dart';
 import '../data/statistiche.dart';
 import '../db/database_helper.dart';
 import '../models/scheda.dart';
+import '../services/coach_servizio.dart';
 import '../services/promemoria.dart';
 import '../state/sessione_allenamento.dart';
 import '../theme/app_theme.dart';
-import 'assistente_screen.dart';
+import 'coach_screen.dart';
 import 'calendario_screen.dart';
 import 'mappa_muscolare_screen.dart';
 import 'medaglie_screen.dart';
 import 'workout_screen.dart';
 
-class _AppEsterna {
-  final String nome;
-  final IconData icona;
-  final String url;
-  const _AppEsterna(this.nome, this.icona, this.url);
-}
-
-const _appEsterne = [
-  _AppEsterna('Spotify', Icons.headphones, 'https://open.spotify.com'),
-  _AppEsterna('YouTube', Icons.play_circle_outline, 'https://www.youtube.com'),
-  _AppEsterna('Strava', Icons.directions_run, 'https://www.strava.com'),
-  _AppEsterna('MyFitnessPal', Icons.restaurant_menu, 'https://www.myfitnesspal.com'),
-];
-
-/// Home: panoramica della settimana, timer dell'allenamento, scorciatoie,
-/// consigli e collegamenti ad altre app.
+/// Home: prossimo allenamento, consigli del coach, la tua settimana e
+/// scorciatoie. Essenziale: il dettaglio sta in Progressi.
 class HomeScreen extends StatefulWidget {
   final String? nome;
   final VoidCallback onVaiAlleSchede;
@@ -51,7 +37,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double? _deltaPeso;
   StatisticheUtente? _stat;
   int _medaglieSbloccate = 0;
-  bool _ricettaAperta = false;
+  List<ConsiglioCoach> _consigli = [];
   // Prossima scheda della rotazione (quella dopo l'ultima fatta).
   Scheda? _prossima;
   int _eserciziProssima = 0;
@@ -109,8 +95,11 @@ class _HomeScreenState extends State<HomeScreen> {
       prossima = valide[(indiceUltima + 1) % valide.length];
     }
 
+    final consigli = await consigliDelCoach();
+
     if (!mounted) return;
     setState(() {
+      _consigli = consigli;
       _prossima = prossima;
       _eserciziProssima = prossima == null ? 0 : (conteggi[prossima.id] ?? 0);
       _ultimaProssima = prossima == null ? null : ultime[prossima.id];
@@ -159,15 +148,6 @@ class _HomeScreenState extends State<HomeScreen> {
     await _carica();
   }
 
-  Future<void> _apri(String url) async {
-    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Impossibile aprire il collegamento')),
-      );
-    }
-  }
-
   Future<void> _riprendi() async {
     final sessione = GestoreSessione.inPausa;
     if (sessione == null) return;
@@ -186,6 +166,11 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {});
       _carica();
     }
+  }
+
+  Future<void> _apriCoach() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const CoachScreen()));
+    if (mounted) _carica();
   }
 
   /// Avvia subito la scheda proposta in Home.
@@ -613,143 +598,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const MappaMuscolareScreen()));
         }),
         const SizedBox(width: 10),
-        _scorciatoia(Icons.smart_toy_outlined, 'Assistente AI', () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const AssistenteScreen()));
-        }),
-      ],
-    );
-  }
-
-  int get _giornoDellAnno {
-    final ora = DateTime.now();
-    return ora.difference(DateTime(ora.year, 1, 1)).inDays;
-  }
-
-  Widget _consiglioDelGiorno() {
-    final testo = consigliDelGiorno[_giornoDellAnno % consigliDelGiorno.length];
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
-            child: const Icon(Icons.lightbulb_outline, color: Colors.black, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'CONSIGLIO DEL GIORNO',
-                  style: TextStyle(color: AppColors.accento, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.3),
-                ),
-                const SizedBox(height: 4),
-                Text(testo, style: const TextStyle(height: 1.3)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _ricettaDelGiorno() {
-    final r = ricetteFit[(_giornoDellAnno + 3) % ricetteFit.length];
-    return GestureDetector(
-      onTap: () => setState(() => _ricettaAperta = !_ricettaAperta),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: coloreSuperficie(context),
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
-                  child: const Icon(Icons.restaurant_menu, color: Colors.black, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'RICETTA FIT DEL GIORNO',
-                        style: TextStyle(color: AppColors.accento, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.3),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(r.titolo, style: GoogleFonts.oswald(fontSize: 19, fontWeight: FontWeight.w600)),
-                      Text(r.tipo, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
-                    ],
-                  ),
-                ),
-                Icon(_ricettaAperta ? Icons.expand_less : Icons.expand_more, color: Colors.grey.shade500),
-              ],
-            ),
-            if (_ricettaAperta) ...[
-              const SizedBox(height: 14),
-              Text('INGREDIENTI', style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
-              const SizedBox(height: 6),
-              for (final ing in r.ingredienti)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2),
-                  child: Text('•  $ing'),
-                ),
-              const SizedBox(height: 12),
-              Text('PREPARAZIONE', style: TextStyle(color: Colors.grey.shade500, fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 1.2)),
-              const SizedBox(height: 6),
-              for (var i = 0; i < r.preparazione.length; i++)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Text('${i + 1}.  ${r.preparazione[i]}', style: const TextStyle(height: 1.3)),
-                ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _appCollegate() {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: [
-        for (final a in _appEsterne)
-          GestureDetector(
-            onTap: () => _apri(a.url),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: coloreSuperficie(context),
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(a.icona, size: 20, color: AppColors.accento),
-                  const SizedBox(width: 8),
-                  Text(a.nome, style: const TextStyle(fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ),
+        _scorciatoia(Icons.psychology_outlined, 'Coach', _apriCoach),
       ],
     );
   }
@@ -765,6 +614,23 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 18),
           _cardAllenamento(),
           const SizedBox(height: 12),
+          if (_consigli.isNotEmpty) ...[
+            Row(
+              children: [
+                Expanded(child: _etichetta('IL COACH')),
+                TextButton(
+                  onPressed: _apriCoach,
+                  child: Text(_consigli.length > 2 ? 'Tutti (${_consigli.length})' : 'Apri'),
+                ),
+              ],
+            ),
+            for (final c in _consigli.take(2))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: CardConsiglio(consiglio: c, compatta: true),
+              ),
+            const SizedBox(height: 4),
+          ],
           _etichetta('QUESTA SETTIMANA'),
           _obiettivoCard(),
           const SizedBox(height: 10),
@@ -776,14 +642,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 14),
           _etichetta('SCORCIATOIE'),
           _scorciatoie(),
-          const SizedBox(height: 14),
-          _etichetta('OGGI PER TE'),
-          _consiglioDelGiorno(),
-          const SizedBox(height: 10),
-          _ricettaDelGiorno(),
-          const SizedBox(height: 14),
-          _etichetta('LE TUE APP'),
-          _appCollegate(),
+
         ],
       ),
     );

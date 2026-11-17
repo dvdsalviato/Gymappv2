@@ -11,9 +11,12 @@ import 'notifica_allenamento.dart';
 class ImpostazioniPromemoria {
   final Set<int> giorni;
   final TimeOfDay ora;
-  const ImpostazioniPromemoria(this.giorni, this.ora);
 
-  bool get attivi => giorni.isNotEmpty;
+  /// Notifica della domenica sera con l'invito a guardare progressi e coach.
+  final bool riepilogo;
+  const ImpostazioniPromemoria(this.giorni, this.ora, {this.riepilogo = false});
+
+  bool get attivi => giorni.isNotEmpty || riepilogo;
 }
 
 /// Promemoria settimanali di allenamento ("Oggi tocca a LEGS") nei giorni e
@@ -24,6 +27,8 @@ class Promemoria {
 
   static const _chiaveGiorni = 'promemoria_giorni';
   static const _chiaveOra = 'promemoria_ora';
+  static const _chiaveRiepilogo = 'riepilogo_domenica';
+  static const _idRiepilogo = 7100;
   static const _idBase = 7000; // 7001..7007, uno per giorno della settimana
   static bool _fusoPronto = false;
 
@@ -40,7 +45,7 @@ class Promemoria {
       hour: int.tryParse(parti.first) ?? 18,
       minute: parti.length > 1 ? (int.tryParse(parti[1]) ?? 0) : 0,
     );
-    return ImpostazioniPromemoria(giorni, ora);
+    return ImpostazioniPromemoria(giorni, ora, riepilogo: prefs.getBool(_chiaveRiepilogo) ?? false);
   }
 
   static Future<void> salva(ImpostazioniPromemoria imp) async {
@@ -49,6 +54,7 @@ class Promemoria {
     final h = imp.ora.hour.toString().padLeft(2, '0');
     final m = imp.ora.minute.toString().padLeft(2, '0');
     await prefs.setString(_chiaveOra, '$h:$m');
+    await prefs.setBool(_chiaveRiepilogo, imp.riepilogo);
     await ripianifica();
   }
 
@@ -120,6 +126,7 @@ class Promemoria {
       for (var g = 1; g <= 7; g++) {
         await plugin.cancel(id: _idBase + g);
       }
+      await plugin.cancel(id: _idRiepilogo);
       await prefs.setBool('promemoria_pianificati', imp.attivi);
       if (!imp.attivi) return;
 
@@ -145,6 +152,17 @@ class Promemoria {
           title: 'Giorno di allenamento 💪',
           body: testo,
           scheduledDate: _prossima(g, imp.ora),
+          notificationDetails: dettagli,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
+        );
+      }
+      if (imp.riepilogo) {
+        await plugin.zonedSchedule(
+          id: _idRiepilogo,
+          title: 'Com\'è andata la settimana?',
+          body: 'Il coach ha guardato i tuoi allenamenti: progressi, stalli e consigli per la prossima.',
+          scheduledDate: _prossima(DateTime.sunday, const TimeOfDay(hour: 19, minute: 0)),
           notificationDetails: dettagli,
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,

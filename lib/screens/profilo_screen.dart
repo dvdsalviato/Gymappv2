@@ -3,7 +3,6 @@ import 'account_screen.dart';
 import '../db/database_helper.dart';
 import '../theme/app_theme.dart';
 import '../widgets/campo_numero.dart';
-import '../widgets/card_fabbisogno.dart';
 import '../widgets/sezione_dati_backup.dart';
 import 'peso_screen.dart';
 import '../widgets/card_promemoria.dart';
@@ -216,8 +215,6 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
           icon: const Icon(Icons.check),
           label: const Text('Salva profilo'),
         ),
-        const SizedBox(height: 20),
-        CardFabbisogno(versione: _versione),
         const SizedBox(height: 24),
       ],
     );

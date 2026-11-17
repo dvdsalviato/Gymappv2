@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../amici/backup_servizio.dart';
 import '../db/database_helper.dart';
 import '../services/promemoria.dart';
 import '../state/sessione_allenamento.dart';
@@ -10,8 +11,7 @@ import '../theme/theme_controller.dart';
 import 'home_screen.dart';
 import 'profilo_screen.dart';
 import 'schede_screen.dart';
-import 'alimentazione_screen.dart';
-import 'storico_screen.dart';
+import 'progressi_screen.dart';
 import 'workout_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -33,6 +33,8 @@ class _MainScreenState extends State<MainScreen> {
     _riclassificaEsercizi();
     // Aggiorna il testo dei promemoria con la scheda che tocca adesso.
     Promemoria.ripianifica();
+    // Backup nel cloud se l'ultimo è di più di un giorno fa (se attivo).
+    BackupServizio.istanza.backupSeVecchio();
   }
 
   /// Dà una categoria agli esercizi rimasti "Altro" quando il nome è
@@ -184,9 +186,7 @@ class _MainScreenState extends State<MainScreen> {
       case 1:
         return const SchedeScreen();
       case 2:
-        return const StoricoScreen();
-      case 3:
-        return const AlimentazioneScreen();
+        return const ProgressiScreen();
       default:
         return ProfiloScreen(incorporata: true, onSalvato: _aggiornaNome);
     }
@@ -203,8 +203,7 @@ class _MainScreenState extends State<MainScreen> {
     final voci = [
       (Icons.home_outlined, Icons.home, 'Home'),
       (Icons.inventory_2_outlined, Icons.inventory_2, 'Schede'),
-      (Icons.bar_chart_outlined, Icons.bar_chart, 'Storico'),
-      (Icons.restaurant_outlined, Icons.restaurant, 'Cibo'),
+      (Icons.insights_outlined, Icons.insights, 'Progressi'),
       (Icons.person_outline, Icons.person, 'Profilo'),
     ];
     return SafeArea(

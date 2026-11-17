@@ -146,6 +146,20 @@ class BackupServizio {
     await prefs.setInt(chiaveUltimo, DateTime.now().millisecondsSinceEpoch);
   }
 
+  /// All'avvio: se l'ultimo backup ha più di un giorno, ne fa uno in silenzio
+  /// (così anche modifiche a schede e peso arrivano nel cloud).
+  void backupSeVecchio() {
+    () async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final ultimo = prefs.getInt(chiaveUltimo) ?? 0;
+        final passato = DateTime.now().millisecondsSinceEpoch - ultimo;
+        if (passato < const Duration(hours: 24).inMilliseconds) return;
+        backupAutomatico();
+      } catch (_) {}
+    }();
+  }
+
   /// Backup automatico dopo un allenamento (silenzioso).
   void backupAutomatico() {
     () async {

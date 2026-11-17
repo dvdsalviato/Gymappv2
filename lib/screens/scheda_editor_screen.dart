@@ -153,8 +153,7 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
     if (risultato == true) _carica();
   }
 
-  /// Chiede conferma prima di eliminare: insieme all'esercizio sparisce
-  /// anche il suo storico (serie, record e grafici).
+  /// Chiede conferma prima di togliere un esercizio (lo storico resta).
   Future<bool> _confermaElimina(Esercizio esercizio) async {
     if (esercizio.id == null) return false;
     final serie = await DatabaseHelper.instance.contaSerieEsercizio(esercizio.id!);
@@ -166,8 +165,9 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
         content: Text(
           serie == 0
               ? 'L\'esercizio verrà tolto dalla scheda.'
-              : 'Verrà eliminato anche il suo storico: $serie '
-                  '${serie == 1 ? 'serie registrata' : 'serie registrate'}, con record e grafici.',
+              : 'L\'esercizio esce dalla scheda, ma '
+                  '${serie == 1 ? 'la sua serie resta' : 'le sue $serie serie restano'} nello storico: '
+                  'record e grafici non si perdono.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annulla')),
@@ -202,21 +202,8 @@ class _SchedaEditorScreenState extends State<SchedaEditorScreen> {
     // Salva il nuovo ordine nel database.
     for (int i = 0; i < _esercizi.length; i++) {
       final e = _esercizi[i];
-      if (e.ordine != i) {
-        await DatabaseHelper.instance.updateEsercizio(
-          Esercizio(
-            id: e.id,
-            schedaId: e.schedaId,
-            nome: e.nome,
-            ordine: i,
-            serieTotali: e.serieTotali,
-            repTarget: e.repTarget,
-            riposoSecondi: e.riposoSecondi,
-            note: e.note,
-            categoria: e.categoria,
-            aTempo: e.aTempo,
-          ),
-        );
+      if (e.ordine != i && e.id != null) {
+        await DatabaseHelper.instance.aggiornaOrdineEsercizio(e.id!, i);
       }
     }
     await _carica();

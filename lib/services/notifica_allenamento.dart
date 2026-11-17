@@ -39,7 +39,14 @@ class NotificaAllenamento {
     _inizializzato = true;
   }
 
-  static AndroidNotificationDetails _dettagli({DateTime? finoA, bool saltabile = false}) {
+  static int _limita(int v, int massimo) => v < 0 ? 0 : (v > massimo ? massimo : v);
+
+  static AndroidNotificationDetails _dettagli({
+    DateTime? finoA,
+    bool saltabile = false,
+    int? progresso,
+    int? totale,
+  }) {
     return AndroidNotificationDetails(
       'gymapp_allenamento',
       'Allenamento in corso',
@@ -58,6 +65,11 @@ class NotificaAllenamento {
       usesChronometer: finoA != null,
       chronometerCountDown: finoA != null,
       when: finoA?.millisecondsSinceEpoch,
+      // Barra di avanzamento (come il brano su Spotify) durante riposo ed
+      // esercizi a tempo.
+      showProgress: totale != null && totale > 0,
+      maxProgress: totale ?? 0,
+      progress: _limita(progresso ?? 0, totale ?? 0),
       actions: saltabile
           ? const <AndroidNotificationAction>[
               AndroidNotificationAction(
@@ -78,16 +90,19 @@ class NotificaAllenamento {
     return _plugin;
   }
 
-  /// Mostra o aggiorna la notifica. [finoA] attiva il conto alla rovescia.
+  /// Mostra o aggiorna la notifica. [finoA] attiva il conto alla rovescia,
+  /// [progresso] su [totale] (secondi) disegna la barra di avanzamento.
   static Future<void> aggiorna({
     required String titolo,
     required String testo,
     DateTime? finoA,
     bool saltabile = false,
+    int? progresso,
+    int? totale,
   }) async {
     try {
       await _inizializza();
-      final dettagli = _dettagli(finoA: finoA, saltabile: saltabile);
+      final dettagli = _dettagli(finoA: finoA, saltabile: saltabile, progresso: progresso, totale: totale);
       if (!_servizioAttivo) {
         _servizioAttivo = true;
         await _android?.startForegroundService(
