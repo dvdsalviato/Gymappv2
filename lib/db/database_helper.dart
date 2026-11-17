@@ -1195,6 +1195,26 @@ class DatabaseHelper {
     return {for (final r in righe) r['categoria'] as String: (r['conteggio'] as num).toInt()};
   }
 
+  /// Serie previste da ogni scheda attiva, per gruppo muscolare (per il coach).
+  Future<List<Map<String, int>>> getSeriePrevistePerScheda() async {
+    final db = await database;
+    final righe = await db.rawQuery(
+      '''
+      SELECT esercizi.scheda_id AS scheda, esercizi.categoria AS categoria, SUM(esercizi.serie_totali) AS serie
+      FROM esercizi
+      JOIN schede ON schede.id = esercizi.scheda_id
+      WHERE schede.archiviata = 0 AND esercizi.rimosso = 0
+      GROUP BY esercizi.scheda_id, esercizi.categoria
+      ''',
+    );
+    final perScheda = <int, Map<String, int>>{};
+    for (final r in righe) {
+      perScheda.putIfAbsent(r['scheda'] as int, () => {})[(r['categoria'] as String?) ?? 'Altro'] =
+          (r['serie'] as num).toInt();
+    }
+    return perScheda.values.toList();
+  }
+
   /// Esercizi delle schede attive (nome e gruppo), per il coach.
   Future<List<Map<String, dynamic>>> getEserciziSchedeAttive() async {
     final db = await database;

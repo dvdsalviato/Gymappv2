@@ -15,7 +15,9 @@ class _Massimale {
   final String nome;
   final double attuale;
   final double? prima;
-  const _Massimale(this.nome, this.attuale, this.prima);
+  final double carico; // la miglior serie vera dell'ultimo mese
+  final int rep;
+  const _Massimale(this.nome, this.attuale, this.prima, this.carico, this.rep);
 
   double? get variazione => (prima == null || prima! <= 0) ? null : (attuale - prima!) / prima! * 100;
 }
@@ -65,6 +67,7 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
     final limite30 = adesso.subtract(const Duration(days: 30));
     final limite90 = adesso.subtract(const Duration(days: 90));
     final attuale = <String, double>{};
+    final miglioreSerie = <String, (double, int)>{};
     final precedente = <String, double>{};
     final massimoCarico = <String, double>{};
     final record = <_Record>[];
@@ -77,7 +80,10 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
       if (data == null) continue;
       final stima = massimaleStimato(carico, rep);
       if (data.isAfter(limite30)) {
-        if (stima > (attuale[nome] ?? 0)) attuale[nome] = stima;
+        if (stima > (attuale[nome] ?? 0)) {
+          attuale[nome] = stima;
+          miglioreSerie[nome] = (carico, rep);
+        }
       } else if (data.isAfter(limite90)) {
         if (stima > (precedente[nome] ?? 0)) precedente[nome] = stima;
       }
@@ -88,7 +94,14 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
     }
 
     final massimali = [
-      for (final e in attuale.entries) _Massimale(e.key, e.value, precedente[e.key]),
+      for (final e in attuale.entries)
+        _Massimale(
+          e.key,
+          e.value,
+          precedente[e.key],
+          miglioreSerie[e.key]?.$1 ?? 0,
+          miglioreSerie[e.key]?.$2 ?? 0,
+        ),
     ]..sort((a, b) => b.attuale.compareTo(a.attuale));
 
     if (!mounted) return;
@@ -316,8 +329,8 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
 
   Widget _massimaliCard() {
     return _card(
-      titolo: 'Massimali stimati',
-      sottotitolo: 'Quanto potresti sollevare per 1 ripetizione · ultimi 30 giorni',
+      titolo: 'Forza per esercizio',
+      sottotitolo: 'La tua miglior serie degli ultimi 30 giorni. La percentuale confronta la forza con i 2 mesi prima.',
       figlio: _massimali.isEmpty
           ? Text('Registra qualche serie con carico e qui vedrai la tua forza crescere.',
               style: TextStyle(color: Colors.grey.shade500))
@@ -361,7 +374,7 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
                               ),
                             ),
                           Text(
-                            '${formatKg((m.attuale * 2).round() / 2)} kg',
+                            '${formatKg(m.carico)} kg × ${m.rep}',
                             style: GoogleFonts.oswald(fontSize: 18, fontWeight: FontWeight.w700),
                           ),
                           Icon(Icons.chevron_right, color: Colors.grey.shade500, size: 20),

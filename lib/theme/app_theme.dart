@@ -3,6 +3,29 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'theme_controller.dart';
 
+/// Un colore dell'app: variante per il tema scuro e per quello chiaro.
+/// Le varianti chiare sono scure abbastanza da leggersi sul bianco e da
+/// reggere il testo nero sopra (contrasto ≥ 4:1 in entrambi i casi).
+class ColoreApp {
+  final String nome;
+  final Color scuro;
+  final Color chiaro;
+  const ColoreApp(this.nome, this.scuro, this.chiaro);
+}
+
+const List<ColoreApp> paletteApp = [
+  ColoreApp('Lime', Color(0xFFA3E635), Color(0xFF5B8C13)),
+  ColoreApp('Verde fluo', Color(0xFF39FF14), Color(0xFF1E8F0A)),
+  ColoreApp('Menta', Color(0xFF34D399), Color(0xFF0E8A5F)),
+  ColoreApp('Azzurro', Color(0xFF38BDF8), Color(0xFF0B7AB8)),
+  ColoreApp('Arancio', Color(0xFFFB923C), Color(0xFFD35400)),
+];
+
+ColoreApp get coloreAppAttuale {
+  final i = ThemeController.colore.value;
+  return paletteApp[(i >= 0 && i < paletteApp.length) ? i : 0];
+}
+
 class AppColors {
   static const background = Color(0xFFF2F2F5);
   static const card = Colors.white;
@@ -14,9 +37,10 @@ class AppColors {
   /// (contrasto 1,4:1), questo arriva a 4,2:1 e regge il testo nero sopra.
   static const verdeChiaro = Color(0xFF1E8F0A);
 
-  /// Colore principale dell'app, adattato al tema attivo.
-  static Color get accento =>
-      ThemeController.modalita.value == ThemeMode.light ? verdeChiaro : neon;
+  /// Colore principale dell'app: quello scelto, adattato al tema attivo.
+  static Color get accento => ThemeController.modalita.value == ThemeMode.light
+      ? coloreAppAttuale.chiaro
+      : coloreAppAttuale.scuro;
   static const grigioChip = Color(0xFFEDEDF0);
 
   static const backgroundScuro = Color(0xFF0A0A0C);
@@ -69,7 +93,7 @@ ThemeData _costruisci({
   required Color superficie,
 }) {
   final testi = _testi(testo, b);
-  final accento = b == Brightness.dark ? AppColors.neon : AppColors.verdeChiaro;
+  final accento = b == Brightness.dark ? coloreAppAttuale.scuro : coloreAppAttuale.chiaro;
   return ThemeData(
     useMaterial3: true,
     brightness: b,

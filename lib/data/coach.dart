@@ -6,7 +6,8 @@ import 'progressione.dart';
 /// Tutto si basa su regole semplici e dichiarate (niente "magia"):
 /// - stallo: massimale stimato fermo da ~3 settimane;
 /// - scarico: tante settimane di fila e prestazioni in calo;
-/// - volume: serie a settimana per muscolo fuori dalla zona 10–20 (25 max);
+/// - volume: serie a settimana per muscolo previste dalle tue schede (a
+///   rotazione, col tuo obiettivo settimanale) fuori dalla zona 10–20;
 /// - progressi da celebrare e costanza rispetto al tuo obiettivo.
 
 enum TipoConsiglio { stallo, scarico, volumeBasso, volumeAlto, progresso, costanza, inizio }
@@ -40,8 +41,8 @@ class SerieCoach {
 class DatiCoach {
   final List<SerieCoach> serie; // dalla più vecchia
   final Set<DateTime> presenze; // giorni di allenamento (a mezzanotte)
-  final Map<String, int> serieUltime2Settimane; // per gruppo muscolare
-  final Set<String> gruppiNelleSchede; // gruppi allenati dalle schede attive
+  /// Serie previste da ogni scheda attiva, per gruppo muscolare.
+  final List<Map<String, int>> seriePerScheda;
   final Set<String> eserciziNelleSchede; // nomi (minuscoli) già nelle schede
   final int obiettivoSettimanale;
   final DateTime oggi;
@@ -49,8 +50,7 @@ class DatiCoach {
   const DatiCoach({
     required this.serie,
     required this.presenze,
-    required this.serieUltime2Settimane,
-    required this.gruppiNelleSchede,
+    required this.seriePerScheda,
     required this.eserciziNelleSchede,
     required this.obiettivoSettimanale,
     required this.oggi,
@@ -60,7 +60,6 @@ class DatiCoach {
 double _stima(double carico, int rep) => rep <= 1 ? carico : carico * (1 + rep / 30);
 DateTime _giorno(DateTime d) => DateTime(d.year, d.month, d.day);
 DateTime _lunedi(DateTime d) => _giorno(d).subtract(Duration(days: d.weekday - 1));
-String _kg(double v) => formatKg((v * 2).round() / 2);
 
 const _gruppiConVolume = ['Petto', 'Schiena', 'Gambe', 'Spalle', 'Bicipiti', 'Tricipiti'];
 
@@ -81,14 +80,19 @@ List<ConsiglioCoach> analizza(DatiCoach d) {
     ];
   }
 
-  // Massimale stimato migliore per esercizio e per giorno.
+  // Massimale stimato migliore per esercizio e per giorno (serve a confrontare
+  // serie con carichi e ripetizioni diversi), e la serie vera che lo ha dato.
   final perGiorno = <String, Map<DateTime, double>>{};
+  final serieMigliore = <String, Map<DateTime, SerieCoach>>{};
   final repRecenti = <String, List<int>>{};
   for (final s in d.serie) {
     final g = _giorno(s.data);
     final mappa = perGiorno.putIfAbsent(s.nome, () => {});
     final stima = _stima(s.carico, s.rep);
-    if (stima > (mappa[g] ?? 0)) mappa[g] = stima;
+    if (stima > (mappa[g] ?? 0)) {
+      mappa[g] = stima;
+      serieMigliore.putIfAbsent(s.nome, () => {})[g] = s;
+    }
     if (oggi.difference(g).inDays <= 21) repRecenti.putIfAbsent(s.nome, () => []).add(s.rep);
   }
 
@@ -103,6 +107,21 @@ List<ConsiglioCoach> analizza(DatiCoach d) {
         if (eta >= da && eta <= a && v > m) m = v;
       });
       return m;
+    }
+
+    // La serie vera (kg × ripetizioni) migliore nella finestra, da mostrare.
+    String serieVera(int da, int a) {
+      SerieCoach? m;
+      var stimaM = 0.0;
+      giorni.forEach((g, v) {
+        final eta = oggi.difference(g).inDays;
+        if (eta >= da && eta <= a && v > stimaM) {
+          stimaM = v;
+          m = serieMigliore[nome]?[g];
+        }
+      });
+      final s = m;
+      return s == null ? '-' : '${formatKg(s.carico)} kg × ${s.rep}';
     }
 
     int sessioni(int da, int a) =>
@@ -123,8 +142,8 @@ List<ConsiglioCoach> analizza(DatiCoach d) {
           ConsiglioCoach(
             TipoConsiglio.stallo,
             '$nome: fermo da circa 3 settimane',
-            'Il massimale stimato resta intorno a ${_kg(ora)} kg. Cambia stimolo per 2–3 settimane: '
-                '$cambio, oppure aggiungi una serie. Poi torna al solito schema.',
+            'Miglior serie delle ultime 3 settimane: ${serieVera(0, 21)}. Nelle 3 prima: ${serieVera(22, 42)}. '
+                'Cambia stimolo per 2–3 settimane: $cambio, oppure aggiungi una serie. Poi torna al solito schema.',
             3,
             esercizio: nome,
           ),
@@ -140,8 +159,9 @@ List<ConsiglioCoach> analizza(DatiCoach d) {
       progressi.add((
         ConsiglioCoach(
           TipoConsiglio.progresso,
-          '$nome: +${aumento.toStringAsFixed(0)}% di forza',
-          'Massimale stimato a ${_kg(mese)} kg (era ${_kg(precedente)} kg). Il lavoro sta pagando: continua così.',
+          '$nome: stai migliorando',
+          'Miglior serie dell\'ultimo mese: ${serieVera(0, 30)} (prima: ${serieVera(31, 90)}), '
+              'circa +${aumento.toStringAsFixed(0)}% di forza. Il lavoro sta pagando: continua così.',
           1,
           esercizio: nome,
         ),
@@ -183,21 +203,27 @@ List<ConsiglioCoach> analizza(DatiCoach d) {
     ));
   }
 
-  // ---- Volume per muscolo ----
-  final allenato = d.serieUltime2Settimane.values.fold(0, (a, b) => a + b) > 0;
-  if (allenato) {
+  // ---- Volume per muscolo (previsto dalle schede) ----
+  // Le schede si fanno a rotazione: a settimana si fanno "obiettivo" sedute,
+  // quindi in media ogni scheda conta obiettivo / numero di schede volte.
+  final schede = d.seriePerScheda.where((m) => m.isNotEmpty).toList();
+  if (schede.isNotEmpty && d.obiettivoSettimanale > 0) {
+    final fattore = d.obiettivoSettimanale / schede.length;
     final bassi = <(String, double)>[];
+    final rotazione = '${schede.length == 1 ? 'la tua scheda' : 'le tue ${schede.length} schede a rotazione'} '
+        'e ${d.obiettivoSettimanale} allenament${d.obiettivoSettimanale == 1 ? 'o' : 'i'} a settimana';
     for (final gruppo in _gruppiConVolume) {
-      if (!d.gruppiNelleSchede.contains(gruppo)) continue;
-      final settimanali = (d.serieUltime2Settimane[gruppo] ?? 0) / 2;
+      final totale = schede.fold<int>(0, (a, m) => a + (m[gruppo] ?? 0));
+      if (totale == 0) continue;
+      final settimanali = totale * fattore;
       if (settimanali < 10) {
         bassi.add((gruppo, settimanali));
       } else if (settimanali > 25) {
         consigli.add(ConsiglioCoach(
           TipoConsiglio.volumeAlto,
           '$gruppo: forse troppo volume',
-          'Circa ${settimanali.round()} serie a settimana. Oltre le 20–25 il recupero diventa difficile: '
-              'se senti fatica o i carichi calano, togli qualche serie.',
+          'Con $rotazione fai circa ${settimanali.round()} serie a settimana. Oltre le 20–25 il recupero '
+              'diventa difficile: se senti fatica o i carichi calano, togli qualche serie.',
           2,
         ));
       }
@@ -208,7 +234,7 @@ List<ConsiglioCoach> analizza(DatiCoach d) {
       consigli.add(ConsiglioCoach(
         TipoConsiglio.volumeBasso,
         '$gruppo: poche serie',
-        'Circa ${n.round()} serie a settimana: per crescere ne servono almeno 10. '
+        'Con $rotazione fai circa ${n.round()} serie a settimana: per crescere ne servono almeno 10. '
             '${proposta == null ? 'Aggiungi 1 esercizio da 3–4 serie' : 'Aggiungi "$proposta" (3–4 serie)'} '
             'o una serie in più agli esercizi che già fai.',
         n < 5 ? 3 : 2,

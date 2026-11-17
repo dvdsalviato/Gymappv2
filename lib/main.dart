@@ -135,9 +135,10 @@ class GymappApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ThemeMode>(
-      valueListenable: ThemeController.modalita,
-      builder: (context, modalita, _) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([ThemeController.modalita, ThemeController.colore]),
+      builder: (context, _) {
+        final modalita = ThemeController.modalita.value;
         return MaterialApp(
           title: 'Gymapp',
           debugShowCheckedModeBanner: false,
@@ -146,6 +147,7 @@ class GymappApp extends StatelessWidget {
           themeMode: modalita,
           builder: (context, child) => SfondoTexturizzato(
             scuro: modalita == ThemeMode.dark,
+            accento: coloreAppAttuale.scuro,
             child: child ?? const SizedBox.shrink(),
           ),
           home: const MainScreen(),

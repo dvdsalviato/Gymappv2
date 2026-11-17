@@ -22,8 +22,7 @@ Future<List<ConsiglioCoach>> consigliDelCoach() async {
   return analizza(DatiCoach(
     serie: serie,
     presenze: await db.getGiorniPresenza(),
-    serieUltime2Settimane: await db.getSeriePerCategoriaTra(giorni: 14),
-    gruppiNelleSchede: {for (final e in esercizi) (e['categoria'] as String?) ?? 'Altro'},
+    seriePerScheda: await db.getSeriePrevistePerScheda(),
     eserciziNelleSchede: {for (final e in esercizi) (e['nome'] as String).toLowerCase()},
     obiettivoSettimanale: await leggiObiettivoSettimanale(),
     oggi: DateTime.now(),

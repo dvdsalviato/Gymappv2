@@ -5,7 +5,13 @@ import 'package:flutter/material.dart';
 class SfondoTexturizzato extends StatelessWidget {
   final Widget child;
   final bool scuro;
-  const SfondoTexturizzato({super.key, required this.child, required this.scuro});
+  final Color accento;
+  const SfondoTexturizzato({
+    super.key,
+    required this.child,
+    required this.scuro,
+    this.accento = const Color(0xFFA3E635),
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +22,7 @@ class SfondoTexturizzato extends StatelessWidget {
         Positioned.fill(
           child: IgnorePointer(
             child: RepaintBoundary(
-              child: CustomPaint(painter: _TexturePainter(scuro)),
+              child: CustomPaint(painter: _TexturePainter(scuro, accento)),
             ),
           ),
         ),
@@ -27,7 +33,8 @@ class SfondoTexturizzato extends StatelessWidget {
 
 class _TexturePainter extends CustomPainter {
   final bool scuro;
-  _TexturePainter(this.scuro);
+  final Color lime;
+  _TexturePainter(this.scuro, this.lime);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -35,7 +42,6 @@ class _TexturePainter extends CustomPainter {
     if (scuro) {
       // Aloni verde lime negli angoli, come nelle grafiche "gym" scure.
       final rect = Offset.zero & size;
-      const lime = Color(0xFF39FF14);
       canvas.drawRect(
         rect,
         Paint()
@@ -77,5 +83,5 @@ class _TexturePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_TexturePainter old) => old.scuro != scuro;
+  bool shouldRepaint(_TexturePainter old) => old.scuro != scuro || old.lime != lime;
 }
