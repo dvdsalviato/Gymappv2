@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../data/progressione.dart';
@@ -354,7 +353,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
   }
 
   void _vibraFine() {
-    Vibration.hasVibrator().then((haVibrazione) {
+    if (!kIsWeb) Vibration.hasVibrator().then((haVibrazione) {
       if (haVibrazione == true) {
         Vibration.vibrate(duration: 1000);
       }
@@ -1272,11 +1271,8 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       final immagine = await oggetto.toImage(pixelRatio: 3);
       final dati = await immagine.toByteData(format: ui.ImageByteFormat.png);
       if (dati == null) return;
-      final cartella = await getTemporaryDirectory();
-      final file = File('${cartella.path}/gymapp_allenamento.png');
-      await file.writeAsBytes(dati.buffer.asUint8List());
       await Share.shareXFiles(
-        [XFile(file.path, mimeType: 'image/png')],
+        [XFile.fromData(dati.buffer.asUint8List(), name: 'gymapp_allenamento.png', mimeType: 'image/png')],
         text: 'Allenamento ${r.nomeScheda} completato 💪 #Gymapp',
       );
     } catch (e) {

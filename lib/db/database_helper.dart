@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
+// Il pacchetto web si importa solo quando si compila per il browser.
+import 'fabbrica_stub.dart' if (dart.library.js_interop) 'fabbrica_web.dart';
 import 'package:path/path.dart';
 import '../models/scheda.dart';
 import '../models/esercizio.dart';
@@ -19,8 +22,14 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'scheda_palestra.db');
+    final String path;
+    if (kIsWeb) {
+      // Nel browser: SQLite in WebAssembly, i dati restano nel browser.
+      impostaDatabaseWeb();
+      path = 'scheda_palestra.db';
+    } else {
+      path = join(await getDatabasesPath(), 'scheda_palestra.db');
+    }
     return await openDatabase(
       path,
       version: 6,

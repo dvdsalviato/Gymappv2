@@ -100,6 +100,7 @@ class NotificaAllenamento {
     int? progresso,
     int? totale,
   }) async {
+    if (kIsWeb) return; // nel browser le notifiche di sistema non ci sono
     try {
       await _inizializza();
       final dettagli = _dettagli(finoA: finoA, saltabile: saltabile, progresso: progresso, totale: totale);
@@ -128,7 +129,7 @@ class NotificaAllenamento {
 
   /// Toglie la notifica e ferma il servizio.
   static Future<void> chiudi() async {
-    if (!_servizioAttivo) return;
+    if (kIsWeb || !_servizioAttivo) return;
     _servizioAttivo = false;
     try {
       await _android?.stopForegroundService();

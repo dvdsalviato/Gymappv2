@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
@@ -126,6 +127,7 @@ class Aggiornamenti {
   /// All'avvio: al massimo un controllo ogni 6 ore. Se c'è una build nuova
   /// mostra la notifica (una volta sola per build). Silenzioso se va male.
   static Future<void> controllaInSilenzio() async {
+    if (kIsWeb) return; // la versione web si aggiorna da sola
     try {
       if (buildInstallata == 0) return; // build di prova, non da Actions
       final prefs = await SharedPreferences.getInstance();

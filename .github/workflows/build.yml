@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   build:
@@ -115,6 +117,47 @@ jobs:
           name: apk-${{ matrix.variante }}
           path: uscita/*.apk
           retention-days: 7
+
+  # Webapp (iPhone e computer): pubblicata su GitHub Pages. Indipendente
+  # dall'APK: se fallisce, il telefono riceve comunque l'aggiornamento.
+  web:
+    name: Webapp
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Prepara la versione web
+        run: bash scripts/prepara_web.sh
+
+      - name: Build web
+        run: |
+          flutter build web --release \
+            --base-href "/${{ github.event.repository.name }}/" \
+            --dart-define=BUILD_NUMBER=${{ github.run_number }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy-web:
+    name: Pubblica la webapp
+    needs: web
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
 
   release:
     name: Pubblica nelle Releases

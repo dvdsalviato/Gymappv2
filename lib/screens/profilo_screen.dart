@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'account_screen.dart';
 import '../services/aggiornamenti.dart';
@@ -269,7 +270,8 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        OutlinedButton.icon(
+                        // Nel browser la webapp si aggiorna da sola.
+                        if (!kIsWeb) OutlinedButton.icon(
                           onPressed: () => mostraAggiornaApp(context),
                           icon: const Icon(Icons.system_update),
                           label: Text(

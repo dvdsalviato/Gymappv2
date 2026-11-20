@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 
 /// Versione di cui si mostrano le novità. A ogni aggiornamento si cambiano
 /// versione ed elenco: si vedono SOLO le novità di questa versione.
-const String versioneNovita = '3.5';
+const String versioneNovita = '3.6';
 const String _chiave = 'novita_viste';
 
 class _Novita {
@@ -17,12 +17,9 @@ class _Novita {
 }
 
 const List<_Novita> _elenco = [
-  _Novita(Icons.table_rows_outlined, 'Modalità tabella (in prova)',
-      'All\'inizio dell\'allenamento scegli "Guidato" o "Tabella": tutte le serie in una pagina, '
-          'spunti e parte il recupero. Non ti convince? Spegnila dal Profilo.'),
-  _Novita(Icons.colorize, 'Il tuo colore',
-      'Nel Profilo, tocca il cerchio arcobaleno e scegli qualsiasi colore: l\'app lo adatta '
-          'per restare leggibile in tema chiaro e scuro.'),
+  _Novita(Icons.language, 'Gymapp anche nel browser',
+      'C\'è la versione web, per iPhone e computer: da Safari usa "Aggiungi a Home" e si apre come un\'app. '
+          'Per portarci i tuoi dati usa "Esporta backup" qui e "Ripristina da file" là.'),
 ];
 
 /// Mostra le novità una sola volta per versione. [primoAvvio] true: chi

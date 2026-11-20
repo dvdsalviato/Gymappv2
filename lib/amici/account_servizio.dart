@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'firebase_config.dart';
@@ -24,6 +25,10 @@ class AccountServizio {
   /// Accede con Google. Restituisce true se l'account era già stato usato e
   /// questo telefono è passato al profilo esistente (ripristino).
   Future<bool> accedi() async {
+    if (kIsWeb) {
+      throw AmiciErrore('L\'accesso con Google per ora è disponibile solo nell\'app Android. '
+          'Per portare qui i tuoi dati usa "Esporta backup" sul telefono e "Ripristina da file" qui.');
+    }
     if (!googleConfigurato) {
       throw AmiciErrore('Manca l\'ID client Google in lib/amici/firebase_config.dart.');
     }

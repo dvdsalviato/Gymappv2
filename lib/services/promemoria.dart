@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -116,6 +117,7 @@ class Promemoria {
   /// Cancella e ripianifica tutti i promemoria in base alle impostazioni.
   /// Non fa nulla (e non chiede permessi) se i promemoria sono spenti.
   static Future<void> ripianifica() async {
+    if (kIsWeb) return; // nel browser niente notifiche programmate
     try {
       final imp = await carica();
       final prefs = await SharedPreferences.getInstance();

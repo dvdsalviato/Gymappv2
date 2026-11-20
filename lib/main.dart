@@ -130,6 +130,39 @@ class _AvvioState extends State<_Avvio> {
   }
 }
 
+/// Su schermi larghi (webapp sul computer, tablet) l'app resta centrata con
+/// una larghezza da telefono, invece di allargarsi su tutto lo schermo.
+class _LarghezzaTelefono extends StatelessWidget {
+  final Widget child;
+  const _LarghezzaTelefono({required this.child});
+
+  static const _larghezza = 560.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, vincoli) {
+      if (vincoli.maxWidth <= 720) return child;
+      final media = MediaQuery.of(context);
+      return Center(
+        child: Container(
+          width: _larghezza,
+          decoration: BoxDecoration(
+            border: Border.symmetric(
+              vertical: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.15)),
+            ),
+          ),
+          child: ClipRect(
+            child: MediaQuery(
+              data: media.copyWith(size: Size(_larghezza, vincoli.maxHeight)),
+              child: child,
+            ),
+          ),
+        ),
+      );
+    });
+  }
+}
+
 class GymappApp extends StatelessWidget {
   const GymappApp({super.key});
 
@@ -152,7 +185,7 @@ class GymappApp extends StatelessWidget {
           builder: (context, child) => SfondoTexturizzato(
             scuro: modalita == ThemeMode.dark,
             accento: coloreAppAttuale.scuro,
-            child: child ?? const SizedBox.shrink(),
+            child: _LarghezzaTelefono(child: child ?? const SizedBox.shrink()),
           ),
           home: const MainScreen(),
         );

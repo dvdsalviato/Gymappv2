@@ -1,7 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/csv_allenamenti.dart';
@@ -16,12 +15,9 @@ class ServizioFile {
     return '${n.year}${d(n.month)}${d(n.day)}';
   }
 
-  static Future<File> _scrivi(String nome, String contenuto) async {
-    final dir = await getTemporaryDirectory();
-    final file = File('${dir.path}/$nome');
-    await file.writeAsString(contenuto, flush: true);
-    return file;
-  }
+  /// File in memoria: funziona sia sul telefono sia nella versione web.
+  static XFile _file(String nome, String contenuto, String tipo) =>
+      XFile.fromData(Uint8List.fromList(utf8.encode(contenuto)), name: nome, mimeType: tipo);
 
   /// Crea il backup completo (schede, esercizi, storico, presenze, peso, profilo) e lo condivide come file.
   static Future<void> condividiBackup() async {
@@ -37,8 +33,10 @@ class ServizioFile {
         'medaglie': prefs.getStringList('medaglie_sbloccate') ?? <String>[],
       },
     });
-    final file = await _scrivi('gymapp_backup_${_dataOggi()}.json', testo);
-    await Share.shareXFiles([XFile(file.path, mimeType: 'application/json')], subject: 'Backup Gymapp');
+    await Share.shareXFiles(
+      [_file('gymapp_backup_${_dataOggi()}.json', testo, 'application/json')],
+      subject: 'Backup Gymapp',
+    );
   }
 
   static Object? _decodifica(String testo) {
@@ -74,17 +72,18 @@ class ServizioFile {
   static Future<void> condividiCsv() async {
     final righe = await DatabaseHelper.instance.getStoricoCompleto();
     if (righe.isEmpty) throw const FormatException('Non c\'è ancora nessuno storico da esportare.');
-    final file = await _scrivi('gymapp_storico_${_dataOggi()}.csv', creaCsvStrong(righe));
-    await Share.shareXFiles([XFile(file.path, mimeType: 'text/csv')], subject: 'Storico Gymapp');
+    await Share.shareXFiles(
+      [_file('gymapp_storico_${_dataOggi()}.csv', creaCsvStrong(righe), 'text/csv')],
+      subject: 'Storico Gymapp',
+    );
   }
 
   /// Fa scegliere un file e ne restituisce il testo (null se annulli).
   static Future<String?> scegliFileTesto() async {
-    final r = await FilePicker.platform.pickFiles(type: FileType.any);
+    final r = await FilePicker.platform.pickFiles(type: FileType.any, withData: true);
     if (r == null || r.files.isEmpty) return null;
-    final percorso = r.files.single.path;
-    if (percorso == null) return null;
-    final byte = await File(percorso).readAsBytes();
+    final byte = r.files.single.bytes;
+    if (byte == null) return null;
     return utf8.decode(byte, allowMalformed: true);
   }
 }

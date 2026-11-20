@@ -17,7 +17,7 @@ class OrologioSync {
 
   /// Comincia ad ascoltare i comandi dell'orologio.
   static void avvia() {
-    if (_sub != null) return;
+    if (kIsWeb || _sub != null) return;
     try {
       _sub = _watch.messageStream.listen(
         (messaggio) {
@@ -32,6 +32,7 @@ class OrologioSync {
 
   /// Invia lo stato dell'allenamento all'orologio.
   static Future<void> invia(Map<String, dynamic> stato) async {
+    if (kIsWeb) return;
     try {
       final dati = <String, dynamic>{...stato, 'ts': DateTime.now().millisecondsSinceEpoch};
       if (!await _watch.isReachable) {
