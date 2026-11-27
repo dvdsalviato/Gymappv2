@@ -3,9 +3,11 @@
 // Immagini da free-exercise-db (github.com/yuhonas/free-exercise-db), public domain.
 
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../db/database_helper.dart';
 import 'catalogo_esercizi.dart';
 import 'classificatore.dart';
 import 'macchinari.dart';
@@ -455,8 +457,16 @@ const _chiaveScelte = 'immagini_scelte';
 
 String _chiaveScelta(String nome) => normalizzaNome(separaMacchinario(nome).base);
 
-/// Da chiamare all'avvio: carica le immagini scelte a mano.
+/// Foto o GIF caricate da te (chiave come sopra). Hanno la precedenza su tutto.
+final Map<String, Uint8List> _caricate = {};
+
+/// Da chiamare all'avvio: carica le immagini scelte a mano e quelle caricate.
 Future<void> caricaImmaginiScelte() async {
+  try {
+    _caricate
+      ..clear()
+      ..addAll(await DatabaseHelper.instance.tutteImmaginiUtente());
+  } catch (_) {}
   try {
     final prefs = await SharedPreferences.getInstance();
     final testo = prefs.getString(_chiaveScelte);
@@ -469,9 +479,30 @@ Future<void> caricaImmaginiScelte() async {
   } catch (_) {}
 }
 
+/// La foto o GIF caricata da te per questo esercizio, se c'è.
+Uint8List? immagineCaricata(String nome) => _caricate[_chiaveScelta(nome)];
+
+/// Vero se per l'esercizio c'è qualcosa da mostrare (caricata o del catalogo).
+bool haImmagine(String nome) => immagineCaricata(nome) != null || immagineEsercizio(nome) != null;
+
+/// Salva una tua foto o GIF per l'esercizio (vale su qualsiasi macchinario).
+Future<void> caricaImmagine(String nome, Uint8List dati, String tipo) async {
+  final chiave = _chiaveScelta(nome);
+  await DatabaseHelper.instance.salvaImmagineUtente(chiave, dati, tipo);
+  _caricate[chiave] = dati;
+}
+
+Future<void> _togliCaricata(String nome) async {
+  final chiave = _chiaveScelta(nome);
+  if (_caricate.remove(chiave) != null) {
+    await DatabaseHelper.instance.eliminaImmagineUtente(chiave);
+  }
+}
+
 /// Salva l'immagine scelta per un esercizio ([base] null = nessuna immagine).
 /// Vale per quell'esercizio su qualsiasi macchinario.
 Future<void> scegliImmagine(String nome, String? base) async {
+  await _togliCaricata(nome);
   _scelte[_chiaveScelta(nome)] = base ?? '';
   _cache.clear();
   final prefs = await SharedPreferences.getInstance();
@@ -480,13 +511,15 @@ Future<void> scegliImmagine(String nome, String? base) async {
 
 /// Torna all'immagine scelta in automatico.
 Future<void> ripristinaImmagine(String nome) async {
+  await _togliCaricata(nome);
   _scelte.remove(_chiaveScelta(nome));
   _cache.clear();
   final prefs = await SharedPreferences.getInstance();
   await prefs.setString(_chiaveScelte, jsonEncode(_scelte));
 }
 
-bool immagineSceltaAMano(String nome) => _scelte.containsKey(_chiaveScelta(nome));
+bool immagineSceltaAMano(String nome) =>
+    _scelte.containsKey(_chiaveScelta(nome)) || _caricate.containsKey(_chiaveScelta(nome));
 
 /// Immagine del catalogo per un esercizio del catalogo (per il selettore).
 String? immagineDelCatalogo(String nomeCatalogo) => _immaginiCatalogo[nomeCatalogo];

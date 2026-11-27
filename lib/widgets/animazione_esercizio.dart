@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
+import 'package:file_picker/file_picker.dart';
 
 import '../data/immagini_esercizi.dart';
 import 'selettore_catalogo.dart';
@@ -50,7 +53,8 @@ class _AnimazioneEsercizioState extends State<AnimazioneEsercizio> {
   void _prepara() {
     _timer?.cancel();
     _fotogramma = 0;
-    final base = immagineEsercizio(widget.nomeEsercizio);
+    // Se c'è una tua foto/GIF si mostra quella: niente alternanza dei fotogrammi.
+    final base = immagineCaricata(widget.nomeEsercizio) != null ? null : immagineEsercizio(widget.nomeEsercizio);
     _percorsi = base == null ? null : fotogrammiEsercizio(base);
     if (_percorsi != null) {
       _timer = Timer.periodic(const Duration(milliseconds: 1100), (_) {
@@ -171,9 +175,10 @@ class _AnimazioneEsercizioState extends State<AnimazioneEsercizio> {
 
   @override
   Widget build(BuildContext context) {
+    final caricata = immagineCaricata(widget.nomeEsercizio);
     final percorsi = _percorsi;
-    if (percorsi == null) return widget.segnaposto;
-    final immagine = _immagine(percorsi);
+    if (caricata == null && percorsi == null) return widget.segnaposto;
+    final immagine = caricata != null ? _immagineCaricata(caricata) : _immagine(percorsi!);
     if (!widget.ingrandibile) return immagine;
     return GestureDetector(
       onTap: _schermoIntero,
@@ -195,6 +200,32 @@ class _AnimazioneEsercizioState extends State<AnimazioneEsercizio> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Foto o GIF caricata da te (le GIF si animano da sole).
+  Widget _immagineCaricata(Uint8List dati) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: AspectRatio(
+            aspectRatio: 3 / 2,
+            child: Container(
+              color: coloreCard(context),
+              child: Image.memory(
+                dati,
+                fit: BoxFit.contain,
+                width: double.infinity,
+                height: double.infinity,
+                gaplessPlayback: true,
+                errorBuilder: (_, __, ___) => widget.segnaposto,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -250,7 +281,8 @@ class MiniaturaEsercizio extends StatelessWidget {
   Widget build(BuildContext context) {
     final scuro = Theme.of(context).brightness == Brightness.dark;
     final fondo = scuro ? const Color(0xFF212126) : const Color(0xFFEDEDF0);
-    final base = immagineEsercizio(nomeEsercizio);
+    final caricata = immagineCaricata(nomeEsercizio);
+    final base = caricata != null ? null : immagineEsercizio(nomeEsercizio);
     final icona = Icon(
       aTempo ? Icons.timer_outlined : Icons.fitness_center,
       color: AppColors.accento,
@@ -261,9 +293,19 @@ class MiniaturaEsercizio extends StatelessWidget {
       child: Container(
         width: dimensione,
         height: dimensione,
-        color: base == null ? fondo : Colors.white,
+        color: caricata != null ? fondo : (base == null ? fondo : Colors.white),
         alignment: Alignment.center,
-        child: base == null
+        child: caricata != null
+            ? Image.memory(
+                caricata,
+                width: dimensione,
+                height: dimensione,
+                fit: BoxFit.cover,
+                cacheWidth: (dimensione * 3).round(),
+                gaplessPlayback: true,
+                errorBuilder: (_, __, ___) => icona,
+              )
+            : base == null
             ? icona
             : Image.asset(
                 fotogrammiEsercizio(base).first,
@@ -320,6 +362,12 @@ Future<bool> cambiaImmagineEsercizio(BuildContext context, String nomeEsercizio)
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
+              leading: const Icon(Icons.add_photo_alternate_outlined),
+              title: const Text('Carica una tua foto o GIF'),
+              subtitle: const Text('Dalla galleria: anche un video convertito in GIF'),
+              onTap: () => Navigator.pop(ctx, 'carica'),
+            ),
+            ListTile(
               leading: const Icon(Icons.photo_library_outlined),
               title: const Text('Scegli dal catalogo'),
               subtitle: const Text('Cerca l\'esercizio con il movimento giusto'),
@@ -350,6 +398,7 @@ Future<bool> cambiaImmagineEsercizio(BuildContext context, String nomeEsercizio)
     await ripristinaImmagine(nomeEsercizio);
     return true;
   }
+  if (azione == 'carica') return _caricaDaGalleria(context, nomeEsercizio);
   final scelto = await mostraCatalogoEsercizi(context);
   if (scelto == null || !context.mounted) return false;
   final base = immagineDelCatalogo(scelto.nome);
@@ -360,5 +409,38 @@ Future<bool> cambiaImmagineEsercizio(BuildContext context, String nomeEsercizio)
     return false;
   }
   await scegliImmagine(nomeEsercizio, base);
+  return true;
+}
+
+
+/// Dimensione massima di una foto/GIF caricata (resta nel database dell'app).
+const int _maxByteImmagine = 8 * 1024 * 1024;
+
+/// Fa scegliere una foto o una GIF dalla galleria e la salva per l'esercizio.
+Future<bool> _caricaDaGalleria(BuildContext context, String nomeEsercizio) async {
+  final risultato = await FilePicker.platform.pickFiles(type: FileType.image, withData: true);
+  if (risultato == null || risultato.files.isEmpty || !context.mounted) return false;
+  final file = risultato.files.single;
+  final dati = file.bytes;
+  if (dati == null || dati.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Non riesco a leggere il file: riprova con un\'altra immagine')),
+    );
+    return false;
+  }
+  if (dati.length > _maxByteImmagine) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('File troppo grande (massimo 8 MB): prova una GIF più corta o più piccola')),
+    );
+    return false;
+  }
+  final estensione = (file.extension ?? '').toLowerCase();
+  final tipo = estensione == 'gif' ? 'image/gif' : (estensione == 'png' ? 'image/png' : 'image/jpeg');
+  await caricaImmagine(nomeEsercizio, dati, tipo);
+  if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Immagine salvata per "$nomeEsercizio"')),
+    );
+  }
   return true;
 }

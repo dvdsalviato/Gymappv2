@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 
 /// Versione di cui si mostrano le novità. A ogni aggiornamento si cambiano
 /// versione ed elenco: si vedono SOLO le novità di questa versione.
-const String versioneNovita = '3.6';
+const String versioneNovita = '3.7';
 const String _chiave = 'novita_viste';
 
 class _Novita {
@@ -17,9 +17,9 @@ class _Novita {
 }
 
 const List<_Novita> _elenco = [
-  _Novita(Icons.language, 'Gymapp anche nel browser',
-      'C\'è la versione web, per iPhone e computer: da Safari usa "Aggiungi a Home" e si apre come un\'app. '
-          'Per portarci i tuoi dati usa "Esporta backup" qui e "Ripristina da file" là.'),
+  _Novita(Icons.add_photo_alternate_outlined, 'Le tue foto e GIF degli esercizi',
+      'Per ogni esercizio puoi caricare una foto o una GIF dalla galleria: tocca l\'immagine a schermo intero '
+          '("Cambiala") oppure, nella modifica dell\'esercizio, "Scegli" o "Cambia".'),
 ];
 
 /// Mostra le novità una sola volta per versione. [primoAvvio] true: chi

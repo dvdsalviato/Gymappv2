@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
 // Il pacchetto web si importa solo quando si compila per il browser.
@@ -96,6 +97,13 @@ class DatabaseHelper {
           await db.execute('ALTER TABLE esercizi ADD COLUMN rimosso INTEGER NOT NULL DEFAULT 0');
         }
         await _collegaCatalogo(db);
+        // Foto o GIF caricate da te per gli esercizi (chiave = nome normalizzato).
+        await db.execute(
+          'CREATE TABLE IF NOT EXISTS immagini_utente ('
+          'chiave TEXT PRIMARY KEY, '
+          'dati BLOB NOT NULL, '
+          'tipo TEXT)',
+        );
       },
       onCreate: _onCreate,
       // Nessuna cancellazione: le modifiche allo schema vanno fatte in modo
@@ -1166,6 +1174,37 @@ class DatabaseHelper {
       risultato[r['categoria'] as String] = r['conteggio'] as int;
     }
     return risultato;
+  }
+
+  // ---- IMMAGINI CARICATE DA TE ----
+
+  Future<void> salvaImmagineUtente(String chiave, Uint8List dati, String tipo) async {
+    final db = await database;
+    await db.insert(
+      'immagini_utente',
+      {'chiave': chiave, 'dati': dati, 'tipo': tipo},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> eliminaImmagineUtente(String chiave) async {
+    final db = await database;
+    await db.delete('immagini_utente', where: 'chiave = ?', whereArgs: [chiave]);
+  }
+
+  Future<Map<String, Uint8List>> tutteImmaginiUtente() async {
+    final db = await database;
+    final righe = await db.query('immagini_utente');
+    final mappa = <String, Uint8List>{};
+    for (final r in righe) {
+      final dati = r['dati'];
+      if (dati is Uint8List) {
+        mappa[r['chiave'] as String] = dati;
+      } else if (dati is List<int>) {
+        mappa[r['chiave'] as String] = Uint8List.fromList(dati);
+      }
+    }
+    return mappa;
   }
 
   /// Serie con carico (non a tempo), dalla più vecchia: servono a Progressi

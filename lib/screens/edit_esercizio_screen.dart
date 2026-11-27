@@ -369,7 +369,7 @@ class _EditEsercizioScreenState extends State<EditEsercizioScreen> {
                 valueListenable: _nomeCtrl,
                 builder: (context, valore, _) {
                   final nome = valore.text.trim();
-                  final trovata = nome.isNotEmpty && immagineEsercizio(nome) != null;
+                  final trovata = nome.isNotEmpty && haImmagine(nome);
                   return Row(
                     children: [
                       MiniaturaEsercizio(nomeEsercizio: nome.isEmpty ? '-' : nome, dimensione: 56, aTempo: _aTempo),
