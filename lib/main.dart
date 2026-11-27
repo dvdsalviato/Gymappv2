@@ -86,6 +86,23 @@ class _AvvioState extends State<_Avvio> {
     ];
     final testo = righe.join('\n');
     final conProblemi = _errore != null || _erroriAvvio.isNotEmpty;
+    // Avvio normale: solo una rotellina discreta, senza testo tecnico.
+    // L'elenco dei passi compare solo se qualcosa va storto.
+    if (!conProblemi) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          backgroundColor: Color(0xFF15141A),
+          body: Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white54),
+            ),
+          ),
+        ),
+      );
+    }
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark(useMaterial3: true),
