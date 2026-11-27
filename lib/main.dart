@@ -92,7 +92,7 @@ class _AvvioState extends State<_Avvio> {
       return const MaterialApp(
         debugShowCheckedModeBanner: false,
         home: Scaffold(
-          backgroundColor: Color(0xFF15141A),
+          backgroundColor: Color(0xFF0A0A0C),
           body: Center(
             child: SizedBox(
               width: 28,
