@@ -25,7 +25,7 @@ Future<T?> mostraDialogoAzioni<T>(
     context: context,
     barrierDismissible: chiudibile,
     builder: (ctx) {
-      final forma = const StadiumBorder();
+      final forma = const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12)));
       Widget bottone(AzioneDialogo<T> a) {
         final onPressed = () => Navigator.pop(ctx, a.valore);
         final contenuto = Text(a.etichetta, textAlign: TextAlign.center);

@@ -216,7 +216,7 @@ class _AccountScreenState extends State<AccountScreen> {
   Widget _blocco({required Widget child}) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(28)),
+        decoration: pannello(context),
         child: child,
       );
 
@@ -334,7 +334,7 @@ class _AccountScreenState extends State<AccountScreen> {
             onPressed: (_occupato || r == null) ? null : _ripristina,
             icon: const Icon(Icons.cloud_download_outlined),
             label: const Text('Ripristina dal backup'),
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), shape: const StadiumBorder()),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12)))),
           ),
           const SizedBox(height: 6),
           SwitchListTile(

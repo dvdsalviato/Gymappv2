@@ -41,7 +41,7 @@ class _MedaglieScreenState extends State<MedaglieScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(raggioPannello),
         border: Border.all(color: sbloccata ? colTier.withValues(alpha: 0.7) : Colors.transparent),
       ),
       child: Column(
@@ -103,10 +103,7 @@ class _MedaglieScreenState extends State<MedaglieScreen> {
               children: [
                 Container(
                   padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: coloreSuperficie(context),
-                    borderRadius: BorderRadius.circular(28),
-                  ),
+                  decoration: pannello(context),
                   child: Row(
                     children: [
                       Container(
@@ -200,10 +197,7 @@ class _MedaglieScreenState extends State<MedaglieScreen> {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: coloreSuperficie(context),
-          borderRadius: BorderRadius.circular(22),
-        ),
+        decoration: pannello(context),
         child: Column(
           children: [
             Text(valore, style: GoogleFonts.oswald(fontSize: 26, fontWeight: FontWeight.w700)),

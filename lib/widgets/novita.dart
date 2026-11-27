@@ -20,6 +20,11 @@ const List<_Novita> _elenco = [
   _Novita(Icons.sync, 'Stessi dati ovunque',
       'Con l\'account Google collegato, telefono, computer e iPad restano allineati da soli: '
           'schede, allenamenti, peso e profilo si aggiornano appena apri l\'app.'),
+  _Novita(Icons.accessibility_new, 'Il corpo in primo piano',
+      'In Progressi la mappa dei muscoli è in cima, e la costanza ora si legge a colpo d\'occhio: '
+          'una barra per settimana, con la linea del tuo obiettivo.'),
+  _Novita(Icons.auto_awesome_mosaic_outlined, 'Nuovo look',
+      'Pannelli più curati, barra in basso rinnovata, accessi rapidi in cima alla Home e un Profilo più ordinato.'),
   _Novita(Icons.bolt, 'Avvio più pulito', 'All\'apertura niente più scritte tecniche.'),
 ];
 

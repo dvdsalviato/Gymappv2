@@ -53,9 +53,9 @@ class CardConsiglio extends StatelessWidget {
     final colore = coloreConsiglio(consiglio.tipo);
     return Material(
       color: coloreSuperficie(context),
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(raggioPannello),
       child: InkWell(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(raggioPannello),
         onTap: _apribile
             ? () => Navigator.push(
                   context,
@@ -65,7 +65,7 @@ class CardConsiglio extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(raggioPannello),
             border: Border.all(color: colore.withValues(alpha: 0.35)),
           ),
           child: Row(
@@ -181,7 +181,7 @@ class _CoachScreenState extends State<CoachScreen> {
                     label: const Text('Hai una domanda? Chiedi all\'assistente AI'),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
-                      shape: const StadiumBorder(),
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                     ),
                   ),
                 ],

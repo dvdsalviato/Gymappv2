@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../data/muscoli.dart';
 import '../data/progressione.dart';
+import '../data/statistiche.dart';
 import '../db/database_helper.dart';
 import '../theme/app_theme.dart';
+import 'mappa_muscolare_screen.dart';
 import 'storico_esercizio_screen.dart';
 import 'storico_screen.dart';
 
@@ -30,7 +33,7 @@ class _Record {
   const _Record(this.nome, this.carico, this.rep, this.data);
 }
 
-/// Progressi: risponde a "sto migliorando?". Costanza, serie per muscolo
+/// Progressi: risponde a "sto migliorando?". Mappa del corpo, costanza, serie per muscolo
 /// rispetto alla settimana scorsa, massimali stimati e record recenti.
 class ProgressiScreen extends StatefulWidget {
   const ProgressiScreen({super.key});
@@ -49,6 +52,8 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
   Map<String, int> _settimanaPrima = {};
   List<_Massimale> _massimali = [];
   List<_Record> _record = [];
+  Map<String, int> _volumiMuscoli = {};
+  int _obiettivo = obiettivoPredefinito;
 
   @override
   void initState() {
@@ -62,6 +67,8 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
     final settimana = await db.getSeriePerCategoriaTra(giorni: 7);
     final prima = await db.getSeriePerCategoriaTra(giorni: 7, finoAGiorniFa: 7);
     final serie = await db.getSerieForza();
+    final muscoliSett = await volumiMuscoli();
+    final obiettivo = await leggiObiettivoSettimanale();
 
     final adesso = DateTime.now();
     final limite30 = adesso.subtract(const Duration(days: 30));
@@ -107,6 +114,8 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
     if (!mounted) return;
     setState(() {
       _presenze = presenze;
+      _volumiMuscoli = muscoliSett;
+      _obiettivo = obiettivo;
       _settimana = settimana;
       _settimanaPrima = prima;
       _massimali = massimali.take(8).toList();
@@ -140,47 +149,117 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
   Widget _card({required String titolo, String? sottotitolo, required Widget figlio, Widget? azione}) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(28)),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      decoration: pannello(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  titolo.toUpperCase(),
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                    letterSpacing: 1.4,
-                  ),
-                ),
-              ),
-              if (azione != null) azione,
-            ],
-          ),
+          TitoloSezione(titolo, azione: azione, padding: EdgeInsets.zero),
           if (sottotitolo != null) ...[
-            const SizedBox(height: 2),
-            Text(sottotitolo, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+            const SizedBox(height: 4),
+            Text(sottotitolo, style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.3)),
           ],
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           figlio,
         ],
       ),
     );
   }
 
+  // ---- Muscoli (mappa del corpo) ----
+
+  Future<void> _apriMappa() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => const MappaMuscolareScreen()));
+    _carica();
+  }
+
+  Widget _muscoli() {
+    final allenati = _volumiMuscoli.values.where((n) => n > 0).length;
+    final totale = _volumiMuscoli.values.fold<int>(0, (a, b) => a + b);
+    return GestureDetector(
+      onTap: _apriMappa,
+      child: _card(
+        titolo: 'Muscoli · ultimi 7 giorni',
+        azione: TextButton(
+          onPressed: _apriMappa,
+          style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: const Size(0, 32)),
+          child: const Text('Dettagli'),
+        ),
+        figlio: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  flex: 5,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 260),
+                    child: CorpoMuscoliCompatto(volumi: _volumiMuscoli),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _numeroLaterale('$totale', 'serie totali'),
+                      const SizedBox(height: 18),
+                      _numeroLaterale('$allenati/${muscoli.length}', 'muscoli\nallenati'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Align(alignment: Alignment.centerLeft, child: LegendaVolume()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _numeroLaterale(String valore, String etichetta) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(valore, style: GoogleFonts.oswald(fontSize: 30, fontWeight: FontWeight.w700, height: 1)),
+        const SizedBox(height: 4),
+        Text(etichetta, style: TextStyle(color: Colors.grey.shade500, fontSize: 12, height: 1.2)),
+      ],
+    );
+  }
+
   // ---- Costanza ----
 
+  /// Ultime 12 settimane: una barra per settimana, fatta di tanti tasselli
+  /// quanti sono i giorni di allenamento. La linea tratteggiata è l'obiettivo.
   Widget _costanza() {
     final scuro = Theme.of(context).brightness == Brightness.dark;
-    final vuoto = (scuro ? Colors.white : Colors.black).withValues(alpha: 0.07);
+    final vuoto = (scuro ? Colors.white : Colors.black).withValues(alpha: 0.06);
     final oggi = _giorno(DateTime.now());
-    final inizio = _lunedi(oggi).subtract(const Duration(days: 7 * 11));
+    final lunediOra = _lunedi(oggi);
     final fila = _settimaneDiFila;
+    const settimane = 12;
+    const tassello = 9.0;
+    const spazio = 3.0;
+    const altezzaBarre = 7 * tassello + 6 * spazio;
+    final obiettivo = _obiettivo.clamp(1, 7);
+
+    int giorniDi(DateTime lunedi) {
+      var n = 0;
+      for (var i = 0; i < 7; i++) {
+        if (_presenze.contains(DateTime(lunedi.year, lunedi.month, lunedi.day + i))) n++;
+      }
+      return n;
+    }
+
+    final colonne = [
+      for (var c = settimane - 1; c >= 0; c--) DateTime(lunediOra.year, lunediOra.month, lunediOra.day - 7 * c),
+    ];
+    final raggiunte = colonne.where((l) => giorniDi(l) >= obiettivo).length;
+
     return _card(
       titolo: 'Costanza',
       figlio: Column(
@@ -209,39 +288,99 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          // Ultime 12 settimane: una colonna per settimana, un quadratino per giorno.
-          LayoutBuilder(builder: (context, vincoli) {
-            const colonne = 12;
-            const spazio = 4.0;
-            final lato = ((vincoli.maxWidth - spazio * (colonne - 1)) / colonne).clamp(8.0, 22.0);
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const SizedBox(height: 18),
+          SizedBox(
+            height: altezzaBarre,
+            child: Stack(
               children: [
-                for (var c = 0; c < colonne; c++)
-                  Column(
-                    children: [
-                      for (var r = 0; r < 7; r++)
-                        Builder(builder: (context) {
-                          final g = DateTime(inizio.year, inizio.month, inizio.day + c * 7 + r);
-                          final futuro = g.isAfter(oggi);
-                          final fatto = _presenze.contains(g);
-                          return Container(
-                            width: lato,
-                            height: lato,
-                            margin: const EdgeInsets.only(bottom: spazio),
-                            decoration: BoxDecoration(
-                              color: futuro ? Colors.transparent : (fatto ? AppColors.accento : vuoto),
-                              borderRadius: BorderRadius.circular(lato * 0.3),
-                              border: g == oggi ? Border.all(color: AppColors.accento, width: 1.5) : null,
-                            ),
+                // Linea dell'obiettivo settimanale.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: (obiettivo * (tassello + spazio) - spazio / 2 - 0.5).clamp(0.0, altezzaBarre - 1),
+                  child: CustomPaint(
+                    size: const Size(double.infinity, 1),
+                    painter: _Tratteggio(Colors.grey.shade500.withValues(alpha: 0.7)),
+                  ),
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    for (var i = 0; i < colonne.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 5),
+                      Expanded(
+                        child: Builder(builder: (context) {
+                          final n = giorniDi(colonne[i]);
+                          final corrente = i == colonne.length - 1;
+                          final colore = n >= obiettivo
+                              ? AppColors.accento
+                              : AppColors.accento.withValues(alpha: 0.45);
+                          return Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              for (var r = 6; r >= 0; r--) ...[
+                                Container(
+                                  height: tassello,
+                                  decoration: BoxDecoration(
+                                    color: r < n ? colore : (corrente ? Colors.transparent : vuoto),
+                                    borderRadius: BorderRadius.circular(2),
+                                    border: corrente && r >= n
+                                        ? Border.all(color: AppColors.accento.withValues(alpha: 0.35))
+                                        : null,
+                                  ),
+                                ),
+                                if (r > 0) const SizedBox(height: spazio),
+                              ],
+                            ],
                           );
                         }),
+                      ),
                     ],
-                  ),
+                  ],
+                ),
               ],
-            );
-          }),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              for (var i = 0; i < colonne.length; i++) ...[
+                if (i > 0) const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    i == colonne.length - 1
+                        ? 'ORA'
+                        : ((i == 0 || colonne[i].month != colonne[i - 1].month)
+                            ? _mesi[colonne[i].month - 1].toUpperCase()
+                            : ''),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    softWrap: false,
+                    style: TextStyle(
+                      color: i == colonne.length - 1 ? AppColors.accento : Colors.grey.shade600,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              CustomPaint(size: const Size(18, 1), painter: _Tratteggio(Colors.grey.shade500)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Obiettivo $obiettivo a settimana · raggiunto $raggiunte volte su $settimane',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -295,8 +434,8 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
             return Stack(
               children: [
                 Container(
-                  height: 10,
-                  decoration: BoxDecoration(color: fondo, borderRadius: BorderRadius.circular(5)),
+                  height: 8,
+                  decoration: BoxDecoration(color: fondo, borderRadius: BorderRadius.circular(2)),
                 ),
                 // zona 10-20 serie
                 Positioned(
@@ -307,15 +446,15 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
                   child: Container(
                     decoration: BoxDecoration(
                       color: AppColors.accento.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(5),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
                 ),
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 400),
-                  height: 10,
+                  height: 8,
                   width: larghezza * (n / scala).clamp(0.0, 1.0),
-                  decoration: BoxDecoration(color: colore, borderRadius: BorderRadius.circular(5)),
+                  decoration: BoxDecoration(color: colore, borderRadius: BorderRadius.circular(2)),
                 ),
               ],
             );
@@ -463,6 +602,7 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
           ),
           Text('Stai migliorando? Ecco i numeri.', style: TextStyle(color: Colors.grey.shade600)),
           const SizedBox(height: 18),
+          _muscoli(),
           _costanza(),
           _seriePerMuscolo(),
           _massimaliCard(),
@@ -473,11 +613,30 @@ class _ProgressiScreenState extends State<ProgressiScreen> {
             label: const Text('Storico completo, giorno per giorno'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
-              shape: const StadiumBorder(),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(raggioPannello)),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+/// Linea orizzontale tratteggiata (obiettivo settimanale).
+class _Tratteggio extends CustomPainter {
+  final Color colore;
+  _Tratteggio(this.colore);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = colore
+      ..strokeWidth = 1;
+    for (double x = 0; x < size.width; x += 7) {
+      canvas.drawLine(Offset(x, 0), Offset((x + 4).clamp(0, size.width), 0), p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_Tratteggio old) => old.colore != colore;
 }

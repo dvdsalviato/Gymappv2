@@ -137,10 +137,7 @@ class _PesoScreenState extends State<PesoScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(32),
-      ),
+      decoration: pannello(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -275,10 +272,7 @@ class _PesoScreenState extends State<PesoScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.only(left: 18, right: 6, top: 4, bottom: 4),
-      decoration: BoxDecoration(
-        color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: pannello(context),
       child: Row(
         children: [
           Expanded(
@@ -340,10 +334,7 @@ class _PesoScreenState extends State<PesoScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(8, 20, 20, 14),
-            decoration: BoxDecoration(
-              color: coloreSuperficie(context),
-              borderRadius: BorderRadius.circular(28),
-            ),
+            decoration: pannello(context),
             child: _grafico(dati),
           ),
           const SizedBox(height: 18),

@@ -101,7 +101,7 @@ class _ArchivioScreenState extends State<ArchivioScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.fromLTRB(18, 14, 8, 14),
-      decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(24)),
+      decoration: pannello(context),
       child: Row(
         children: [
           Expanded(
