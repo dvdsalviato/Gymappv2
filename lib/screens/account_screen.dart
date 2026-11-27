@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -5,6 +7,7 @@ import '../amici/account_servizio.dart';
 import '../amici/backup_servizio.dart';
 import '../amici/firebase_config.dart';
 import '../amici/firestore_rest.dart';
+import '../amici/pulsante_google_stub.dart' if (dart.library.js_interop) '../amici/pulsante_google_web.dart';
 import '../theme/app_theme.dart';
 
 /// Account Google e backup dei dati.
@@ -26,11 +29,39 @@ class _AccountScreenState extends State<AccountScreen> {
   bool _caricamento = true;
   bool _occupato = false;
   String? _avvisoRete;
+  StreamSubscription<Object>? _esitiWeb;
+  bool _webPronto = false;
 
   @override
   void initState() {
     super.initState();
     _carica();
+    if (kIsWeb) _preparaWeb();
+  }
+
+  Future<void> _preparaWeb() async {
+    _esitiWeb = _account.esitiWeb.listen((esito) async {
+      if (esito is AmiciErrore) {
+        _avviso(esito.messaggio);
+        return;
+      }
+      await _carica();
+      _avviso(esito == true ? 'Account già usato: ho recuperato il tuo profilo.' : 'Account Google collegato.');
+      // Primo accesso dal browser: se nel cloud c'è un backup, proponilo.
+      if (_remoto != null && mounted) await _ripristina();
+    });
+    try {
+      await _account.preparaWeb();
+      if (mounted) setState(() => _webPronto = true);
+    } catch (e) {
+      _avviso('Accesso con Google non disponibile: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _esitiWeb?.cancel();
+    super.dispose();
   }
 
   Future<void> _carica() async {
@@ -215,11 +246,16 @@ class _AccountScreenState extends State<AccountScreen> {
               style: TextStyle(color: Colors.grey.shade600, fontSize: 12, height: 1.3),
             ),
             const SizedBox(height: 14),
-            FilledButton.icon(
-              onPressed: _occupato ? null : _accedi,
-              icon: const Icon(Icons.login),
-              label: const Text('Accedi con Google'),
-            ),
+            if (kIsWeb)
+              _webPronto
+                  ? pulsanteGoogleWeb()
+                  : const SizedBox(height: 48, child: Center(child: CircularProgressIndicator()))
+            else
+              FilledButton.icon(
+                onPressed: _occupato ? null : _accedi,
+                icon: const Icon(Icons.login),
+                label: const Text('Accedi con Google'),
+              ),
           ],
         ),
       );

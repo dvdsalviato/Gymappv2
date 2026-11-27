@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +17,33 @@ class AccountServizio {
   static final AccountServizio istanza = AccountServizio._();
 
   bool _inizializzato = false;
+  StreamSubscription<GoogleSignInAuthenticationEvent>? _eventiWeb;
+  final StreamController<Object> _esitiWeb = StreamController<Object>.broadcast();
+
+  /// Sul web l'accesso parte dal pulsante ufficiale di Google: qui arrivano
+  /// gli esiti (bool = ripristinato, oppure un AmiciErrore).
+  Stream<Object> get esitiWeb => _esitiWeb.stream;
+
+  /// Prepara Google Sign-In nel browser (va chiamato prima di mostrare il pulsante).
+  Future<void> preparaWeb() async {
+    if (!kIsWeb || _inizializzato) return;
+    await GoogleSignIn.instance.initialize(clientId: googleWebClientId);
+    _inizializzato = true;
+    _eventiWeb = GoogleSignIn.instance.authenticationEvents.listen((evento) async {
+      if (evento is GoogleSignInAuthenticationEventSignIn) {
+        try {
+          _esitiWeb.add(await _completa(evento.user));
+        } catch (e) {
+          _esitiWeb.add(e is AmiciErrore ? e : AmiciErrore('Accesso con Google non riuscito.\n\n$e'));
+        }
+      }
+    }, onError: (Object e) {
+      final t = e.toString().toLowerCase();
+      if (t.contains('cancel')) return;
+      _esitiWeb.add(AmiciErrore('Accesso con Google non riuscito.\n\nDettagli tecnici:\n$e\n\n'
+          'Controlla che gymapp27.web.app sia tra le "Origini JavaScript autorizzate" del client OAuth Web.'));
+    });
+  }
 
   Future<StatoAccount> stato() async {
     final prefs = await SharedPreferences.getInstance();
@@ -26,8 +54,7 @@ class AccountServizio {
   /// questo telefono è passato al profilo esistente (ripristino).
   Future<bool> accedi() async {
     if (kIsWeb) {
-      throw AmiciErrore('L\'accesso con Google per ora è disponibile solo nell\'app Android. '
-          'Per portare qui i tuoi dati usa "Esporta backup" sul telefono e "Ripristina da file" qui.');
+      throw AmiciErrore('Sul web usa il pulsante "Accedi con Google" qui sopra.');
     }
     if (!googleConfigurato) {
       throw AmiciErrore('Manca l\'ID client Google in lib/amici/firebase_config.dart.');
@@ -56,6 +83,10 @@ class AccountServizio {
     }
     final conto = account;
     if (conto == null) throw AmiciErrore('Accesso non riuscito.');
+    return _completa(conto);
+  }
+
+  Future<bool> _completa(GoogleSignInAccount conto) async {
     final autenticazione = await conto.authentication;
     final idToken = autenticazione.idToken;
     if (idToken == null) {
