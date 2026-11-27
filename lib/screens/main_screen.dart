@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../amici/backup_servizio.dart';
+import '../amici/sync_servizio.dart';
 import '../db/database_helper.dart';
 import '../services/aggiornamenti.dart';
 import '../services/promemoria.dart';
@@ -34,8 +34,8 @@ class _MainScreenState extends State<MainScreen> {
     _riclassificaEsercizi();
     // Aggiorna il testo dei promemoria con la scheda che tocca adesso.
     Promemoria.ripianifica();
-    // Backup nel cloud se l'ultimo è di più di un giorno fa (se attivo).
-    BackupServizio.istanza.backupSeVecchio();
+    // Dati uguali su telefono, browser e tablet (se l'account Google è collegato).
+    SyncServizio.istanza.avvia();
     // C'è una build nuova su GitHub? Se sì, notifica e banner in Home.
     Aggiornamenti.controllaInSilenzio();
   }

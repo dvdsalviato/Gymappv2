@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'amici/sync_servizio.dart';
 import 'data/immagini_esercizi.dart';
 import 'db/database_helper.dart';
 import 'screens/main_screen.dart';
+import 'state/navigazione.dart';
 import 'theme/app_theme.dart';
 import 'theme/theme_controller.dart';
 import 'widgets/sfondo_texturizzato.dart';
@@ -194,6 +196,7 @@ class GymappApp extends StatelessWidget {
       builder: (context, _) {
         final modalita = ThemeController.modalita.value;
         return MaterialApp(
+          navigatorKey: navigatoreApp,
           title: 'Gymapp',
           debugShowCheckedModeBanner: false,
           theme: buildLightTheme(),
@@ -204,7 +207,12 @@ class GymappApp extends StatelessWidget {
             accento: coloreAppAttuale.scuro,
             child: _LarghezzaTelefono(child: child ?? const SizedBox.shrink()),
           ),
-          home: const MainScreen(),
+          // Dopo una sincronizzazione arrivata da un altro dispositivo si
+          // ricostruisce tutto, così ogni schermata rilegge i dati nuovi.
+          home: ValueListenableBuilder<int>(
+            valueListenable: SyncServizio.istanza.generazione,
+            builder: (context, generazione, _) => MainScreen(key: ValueKey(generazione)),
+          ),
         );
       },
     );
