@@ -7,6 +7,7 @@ import '../amici/account_servizio.dart';
 import '../amici/backup_servizio.dart';
 import '../amici/firebase_config.dart';
 import '../amici/firestore_rest.dart';
+import '../amici/sync_servizio.dart';
 import '../amici/pulsante_google_stub.dart' if (dart.library.js_interop) '../amici/pulsante_google_web.dart';
 import '../theme/app_theme.dart';
 
@@ -47,8 +48,9 @@ class _AccountScreenState extends State<AccountScreen> {
       }
       await _carica();
       _avviso(esito == true ? 'Account già usato: ho recuperato il tuo profilo.' : 'Account Google collegato.');
-      // Primo accesso dal browser: se nel cloud c'è un backup, proponilo.
-      if (_remoto != null && mounted) await _ripristina();
+      // Primo accesso da qui: si allinea subito con gli altri dispositivi.
+      await SyncServizio.istanza.sincronizza(interattivo: true);
+      if (mounted) await _carica();
     });
     try {
       await _account.preparaWeb();
@@ -136,6 +138,8 @@ class _AccountScreenState extends State<AccountScreen> {
       } else {
         _avviso('Account Google collegato.');
       }
+      await SyncServizio.istanza.sincronizza(interattivo: true);
+      if (mounted) await _carica();
     });
   }
 
@@ -199,8 +203,11 @@ class _AccountScreenState extends State<AccountScreen> {
     if (conferma != true) return;
     await _esegui(() async {
       await _backup.ripristina();
-      await _carica();
-      _avviso('Ripristino completato.');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ripristino completato.')));
+      // Si torna alla Home ricostruita con i dati appena scaricati.
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      SyncServizio.istanza.generazione.value++;
     });
   }
 
@@ -237,7 +244,7 @@ class _AccountScreenState extends State<AccountScreen> {
             Text('Accedi con Google', style: GoogleFonts.oswald(fontSize: 22, fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             Text(
-              'Così non perdi schede e storico se cambi telefono o reinstalli l\'app.',
+              'Così ritrovi schede e storico su tutti i tuoi dispositivi (telefono, computer, iPad) e non li perdi se reinstalli l\'app.',
               style: TextStyle(color: Colors.grey.shade400, height: 1.3),
             ),
             const SizedBox(height: 8),
@@ -333,9 +340,9 @@ class _AccountScreenState extends State<AccountScreen> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _auto,
-            title: const Text('Backup automatico'),
+            title: const Text('Sincronizzazione automatica'),
             subtitle: Text(
-              'Dopo ogni allenamento completato.',
+              'Stessi dati su telefono, computer e tablet collegati a questo account Google.',
               style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
             ),
             onChanged: (v) async {

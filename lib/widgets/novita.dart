@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 
 /// Versione di cui si mostrano le novità. A ogni aggiornamento si cambiano
 /// versione ed elenco: si vedono SOLO le novità di questa versione.
-const String versioneNovita = '3.8';
+const String versioneNovita = '3.9';
 const String _chiave = 'novita_viste';
 
 class _Novita {
@@ -17,9 +17,10 @@ class _Novita {
 }
 
 const List<_Novita> _elenco = [
-  _Novita(Icons.language, 'Gymapp anche dal browser',
-      'Apri gymapp27.web.app (anche su iPhone) e accedi con lo stesso account Google: '
-          'dal menu Account puoi ripristinare lì il backup del telefono.'),
+  _Novita(Icons.sync, 'Stessi dati ovunque',
+      'Con l\'account Google collegato, telefono, computer e iPad restano allineati da soli: '
+          'schede, allenamenti, peso e profilo si aggiornano appena apri l\'app.'),
+  _Novita(Icons.bolt, 'Avvio più pulito', 'All\'apertura niente più scritte tecniche.'),
 ];
 
 /// Mostra le novità una sola volta per versione. [primoAvvio] true: chi
