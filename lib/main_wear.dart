@@ -281,7 +281,7 @@ class _OrologioHomeState extends State<OrologioHome> with SingleTickerProviderSt
         style: FilledButton.styleFrom(
           backgroundColor: _lime,
           foregroundColor: Colors.black,
-          shape: const StadiumBorder(),
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
           textStyle: const TextStyle(fontWeight: FontWeight.w800),
         ),
       ),

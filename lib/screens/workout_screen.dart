@@ -984,7 +984,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
             label: const Text('Termina ora'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(56),
-              shape: const StadiumBorder(),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
             ),
           )
         else
@@ -1290,7 +1290,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(32),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.accento.withValues(alpha: 0.35)),
       ),
       child: Column(
@@ -1420,7 +1420,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                   label: const Text('Condividi'),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(52),
-                    shape: const StadiumBorder(),
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                     foregroundColor: AppColors.accento,
                     side: BorderSide(color: AppColors.accento.withValues(alpha: 0.7)),
                   ),
@@ -1434,7 +1434,7 @@ class _WorkoutScreenState extends State<WorkoutScreen> with SingleTickerProvider
                   label: const Text('Copia testo'),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(52),
-                    shape: const StadiumBorder(),
+                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                   ),
                 ),
               ),

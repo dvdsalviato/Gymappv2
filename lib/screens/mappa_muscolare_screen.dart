@@ -188,6 +188,93 @@ class _Corpo extends StatelessWidget {
   }
 }
 
+/// Corpo fronte e retro affiancati, solo da guardare (per Progressi).
+/// [volumi]: serie per muscolo nella settimana.
+class CorpoMuscoliCompatto extends StatelessWidget {
+  final Map<String, int> volumi;
+  const CorpoMuscoliCompatto({super.key, required this.volumi});
+
+  static final _fronte = _costruisciRegioni(false);
+  static final _retro = _costruisciRegioni(true);
+
+  Widget _lato(List<_Regione> regioni, String etichetta) {
+    return Expanded(
+      child: Column(
+        children: [
+          LayoutBuilder(builder: (context, vincoli) {
+            final w = vincoli.maxWidth;
+            return SizedBox(
+              width: w,
+              height: w * 2.1,
+              child: CustomPaint(painter: _CorpoPainter(regioni, volumi, null)),
+            );
+          }),
+          const SizedBox(height: 2),
+          Text(etichetta, style: TextStyle(color: Colors.grey.shade600, fontSize: 10, letterSpacing: 1.6)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _lato(_fronte, 'FRONTE'),
+        const SizedBox(width: 6),
+        _lato(_retro, 'RETRO'),
+      ],
+    );
+  }
+}
+
+/// Legenda dei colori della mappa (una riga, compatta).
+class LegendaVolume extends StatelessWidget {
+  const LegendaVolume({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    const voci = [
+      ('Riposo', _coloreRiposo),
+      ('1-8', _coloreBasso),
+      ('9-18', _coloreOttimale),
+      ('18+', _coloreAlto),
+    ];
+    return Wrap(
+      spacing: 12,
+      runSpacing: 4,
+      children: [
+        for (final v in voci)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: v.$2, borderRadius: BorderRadius.circular(2)),
+              ),
+              const SizedBox(width: 5),
+              Text(v.$1, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+            ],
+          ),
+      ],
+    );
+  }
+}
+
+/// Serie per muscolo negli ultimi [giorni] giorni (chiave = id del muscolo).
+Future<Map<String, int>> volumiMuscoli({int giorni = 7}) async {
+  final recenti = await DatabaseHelper.instance.getEserciziRecenti(giorni: giorni);
+  final volumi = <String, int>{};
+  for (final r in recenti) {
+    final id = muscoloDi(r['nome'] as String, r['categoria'] as String);
+    if (id == null) continue;
+    volumi[id] = (volumi[id] ?? 0) + (r['serie'] as int);
+  }
+  return volumi;
+}
+
 // ---------------------------------------------------------------------------
 
 class MappaMuscolareScreen extends StatefulWidget {
@@ -362,7 +449,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(28)),
+      decoration: pannello(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -409,7 +496,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
       onTap: () => _apriDettaglio(m.id),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(20)),
+        decoration: pannello(context),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -523,10 +610,7 @@ class _MappaMuscolareScreenState extends State<MappaMuscolareScreen> {
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.fromLTRB(14, 18, 14, 18),
-                      decoration: BoxDecoration(
-                        color: coloreSuperficie(context),
-                        borderRadius: BorderRadius.circular(28),
-                      ),
+                      decoration: pannello(context),
                       child: Column(
                         children: [
                           Row(

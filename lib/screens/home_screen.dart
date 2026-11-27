@@ -19,8 +19,8 @@ import 'medaglie_screen.dart';
 import 'workout_screen.dart';
 import '../widgets/scelta_modalita.dart';
 
-/// Home: prossimo allenamento, consigli del coach, la tua settimana e
-/// scorciatoie. Essenziale: il dettaglio sta in Progressi.
+/// Home: prossimo allenamento, accessi rapidi (calendario, muscoli, coach),
+/// consigli del coach e la tua settimana. Essenziale: il dettaglio sta in Progressi.
 class HomeScreen extends StatefulWidget {
   final String? nome;
   final VoidCallback onVaiAlleSchede;
@@ -243,21 +243,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _etichetta(String testo) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10, top: 6),
-      child: Text(
-        testo,
-        style: TextStyle(
-          color: Colors.grey.shade500,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-          letterSpacing: 1.4,
-        ),
-      ),
-    );
-  }
-
   Widget _intestazione() {
     final nome = widget.nome;
     return Row(
@@ -295,10 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(32),
-      ),
+      decoration: pannello(context, raggio: 14, bordo: inCorso ? AppColors.accento.withValues(alpha: 0.5) : null),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -381,10 +363,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      decoration: BoxDecoration(
-        color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(28),
-      ),
+      decoration: pannello(context),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -402,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 38,
                     decoration: BoxDecoration(
                       color: presente ? AppColors.accento : Colors.transparent,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: presente
                             ? AppColors.accento
@@ -431,10 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        decoration: BoxDecoration(
-          color: coloreSuperficie(context),
-          borderRadius: BorderRadius.circular(24),
-        ),
+        decoration: pannello(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -487,10 +463,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: coloreSuperficie(context),
-          borderRadius: BorderRadius.circular(28),
-        ),
+        decoration: pannello(context),
         child: Row(
           children: [
             SizedBox(
@@ -541,17 +514,18 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: coloreSuperficie(context),
-          borderRadius: BorderRadius.circular(28),
-        ),
+        decoration: pannello(context),
         child: Row(
           children: [
             Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
-              child: const Icon(Icons.local_fire_department, color: Colors.black),
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: AppColors.accento.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.accento.withValues(alpha: 0.5)),
+              ),
+              child: Icon(Icons.local_fire_department, color: AppColors.accento),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -590,25 +564,42 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _scorciatoia(IconData icona, String testo, VoidCallback onTap) {
     return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            color: coloreSuperficie(context),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Column(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(color: AppColors.accento, shape: BoxShape.circle),
-                child: Icon(icona, color: Colors.black),
-              ),
-              const SizedBox(height: 8),
-              Text(testo, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12), textAlign: TextAlign.center),
-            ],
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(raggioPannello),
+          child: Ink(
+            height: 96,
+            padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+            decoration: pannello(context),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.accento.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(9),
+                      ),
+                      child: Icon(icona, color: AppColors.accento, size: 20),
+                    ),
+                    const Spacer(),
+                    Icon(Icons.north_east, size: 14, color: Colors.grey.shade600),
+                  ],
+                ),
+                const Spacer(),
+                Text(
+                  testo.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.oswald(fontWeight: FontWeight.w600, fontSize: 13, letterSpacing: 0.8),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -622,7 +613,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const CalendarioScreen()));
         }),
         const SizedBox(width: 10),
-        _scorciatoia(Icons.accessibility_new, 'Mappa muscolare', () {
+        _scorciatoia(Icons.accessibility_new, 'Muscoli', () {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const MappaMuscolareScreen()));
         }),
         const SizedBox(width: 10),
@@ -645,16 +636,17 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context, agg, _) => agg == null ? const SizedBox.shrink() : _bannerAggiornamento(agg),
           ),
           _cardAllenamento(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          _scorciatoie(),
+          const SizedBox(height: 18),
           if (_consigli.isNotEmpty) ...[
-            Row(
-              children: [
-                Expanded(child: _etichetta('IL COACH')),
-                TextButton(
-                  onPressed: _apriCoach,
-                  child: Text(_consigli.length > 2 ? 'Tutti (${_consigli.length})' : 'Apri'),
-                ),
-              ],
+            TitoloSezione(
+              'Il coach',
+              padding: EdgeInsets.zero,
+              azione: TextButton(
+                onPressed: _apriCoach,
+                child: Text(_consigli.length > 2 ? 'Tutti (${_consigli.length})' : 'Apri'),
+              ),
             ),
             for (final c in _consigli.take(2))
               Padding(
@@ -663,7 +655,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             const SizedBox(height: 4),
           ],
-          _etichetta('QUESTA SETTIMANA'),
+          const TitoloSezione('Questa settimana', padding: EdgeInsets.only(top: 6, bottom: 10)),
           _obiettivoCard(),
           const SizedBox(height: 10),
           _settimana(),
@@ -671,9 +663,6 @@ class _HomeScreenState extends State<HomeScreen> {
           _panoramica(),
           const SizedBox(height: 10),
           _traguardiCard(),
-          const SizedBox(height: 14),
-          _etichetta('SCORCIATOIE'),
-          _scorciatoie(),
 
         ],
       ),

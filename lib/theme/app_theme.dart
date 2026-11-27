@@ -96,6 +96,61 @@ Color coloreChip(BuildContext context) =>
 Color coloreSuperficie(BuildContext context) =>
     Theme.of(context).brightness == Brightness.dark ? const Color(0xFF1E1E24) : Colors.white;
 
+/// Raggio degli angoli dei pannelli: squadrati il giusto, non "a bolla".
+const double raggioPannello = 12;
+
+/// Fondo dei pannelli: leggera sfumatura (luce dall'alto a sinistra) e un
+/// filo di bordo, invece del riquadro piatto molto arrotondato.
+BoxDecoration pannello(BuildContext context, {double raggio = raggioPannello, Color? bordo}) {
+  final scuro = Theme.of(context).brightness == Brightness.dark;
+  return BoxDecoration(
+    borderRadius: BorderRadius.circular(raggio),
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: scuro
+          ? const [Color(0xFF1F1F26), Color(0xFF15151A)]
+          : const [Colors.white, Color(0xFFF8F8FA)],
+    ),
+    border: Border.all(
+      color: bordo ?? (scuro ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.07)),
+    ),
+  );
+}
+
+/// Titolo di sezione: tacca colorata + testo spaziato in maiuscolo.
+class TitoloSezione extends StatelessWidget {
+  final String testo;
+  final Widget? azione;
+  final EdgeInsetsGeometry padding;
+  const TitoloSezione(this.testo, {super.key, this.azione, this.padding = const EdgeInsets.only(bottom: 10)});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: padding,
+      child: Row(
+        children: [
+          Container(width: 3, height: 13, color: AppColors.accento),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              testo.toUpperCase(),
+              style: GoogleFonts.oswald(
+                color: Colors.grey.shade500,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                letterSpacing: 1.6,
+              ),
+            ),
+          ),
+          if (azione != null) azione!,
+        ],
+      ),
+    );
+  }
+}
+
 const _transizioniFluide = PageTransitionsTheme(
   builders: {
     TargetPlatform.android: CupertinoPageTransitionsBuilder(),
@@ -159,7 +214,7 @@ ThemeData _costruisci({
     dialogTheme: DialogThemeData(
       backgroundColor: superficie,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       titleTextStyle: GoogleFonts.oswald(
           fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: 0.4, color: testo),
       contentTextStyle: GoogleFonts.barlow(fontSize: 15, height: 1.4, color: testo.withValues(alpha: 0.8)),
@@ -167,19 +222,30 @@ ThemeData _costruisci({
     popupMenuTheme: PopupMenuThemeData(
       color: superficie,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       textStyle: GoogleFonts.barlow(fontSize: 15, fontWeight: FontWeight.w600, color: testo),
     ),
     cardTheme: CardThemeData(
       color: card,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(raggioPannello)),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: accento,
         textStyle: GoogleFonts.oswald(fontSize: 16, fontWeight: FontWeight.w500, letterSpacing: 0.6),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        side: BorderSide(color: testo.withValues(alpha: 0.16)),
+      ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: SegmentedButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     ),
     dividerTheme: DividerThemeData(color: testo.withValues(alpha: 0.08), thickness: 1),
@@ -188,7 +254,7 @@ ThemeData _costruisci({
         backgroundColor: accento,
         foregroundColor: Colors.black,
         minimumSize: const Size.fromHeight(56),
-        shape: const StadiumBorder(),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
         textStyle: GoogleFonts.oswald(
             fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: 1),
       ),
@@ -216,7 +282,7 @@ ThemeData _costruisci({
       backgroundColor: card,
       surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -228,7 +294,7 @@ ThemeData _costruisci({
       behavior: SnackBarBehavior.floating,
       backgroundColor: accento,
       contentTextStyle: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: accento),
     switchTheme: SwitchThemeData(

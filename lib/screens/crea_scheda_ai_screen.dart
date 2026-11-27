@@ -344,10 +344,7 @@ class _CreaSchedaAiScreenState extends State<CreaSchedaAiScreen> {
             Container(
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
-              decoration: BoxDecoration(
-                color: coloreSuperficie(context),
-                borderRadius: BorderRadius.circular(20),
-              ),
+              decoration: pannello(context),
               child: Row(
                 children: [
                   Expanded(
@@ -382,7 +379,7 @@ class _CreaSchedaAiScreenState extends State<CreaSchedaAiScreen> {
             onPressed: () => setState(() => _risultato = null),
             icon: const Icon(Icons.refresh),
             label: const Text('Cambia richiesta'),
-            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), shape: const StadiumBorder()),
+            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(52), shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12)))),
           ),
         ],
       ),

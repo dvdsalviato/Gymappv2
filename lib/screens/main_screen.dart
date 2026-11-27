@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../amici/sync_servizio.dart';
 import '../db/database_helper.dart';
 import '../services/aggiornamenti.dart';
@@ -201,7 +202,8 @@ class _MainScreenState extends State<MainScreen> {
     if (mounted) setState(() => _nome = (nome != null && nome.isNotEmpty) ? nome : null);
   }
 
-  /// Barra in basso a pillola, con icone tonde: quella attiva diventa verde fluo.
+  /// Barra in basso: fascia piatta con un filo sopra; la voce attiva ha la
+  /// tacca colorata in alto, icona colorata ed etichetta.
   Widget _barraNavigazione(BuildContext context) {
     final voci = [
       (Icons.home_outlined, Icons.home, 'Home'),
@@ -209,45 +211,64 @@ class _MainScreenState extends State<MainScreen> {
       (Icons.insights_outlined, Icons.insights, 'Progressi'),
       (Icons.person_outline, Icons.person, 'Profilo'),
     ];
-    return SafeArea(
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(12, 6, 12, 14),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: coloreCard(context),
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+    final scuro = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: scuro ? const Color(0xFF0F0F13) : Colors.white,
+        border: Border(
+          top: BorderSide(color: (scuro ? Colors.white : Colors.black).withValues(alpha: 0.08)),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            for (var i = 0; i < voci.length; i++)
-              Semantics(
-                label: voci[i].$3,
-                button: true,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (_indice == i) return;
-                    HapticFeedback.selectionClick();
-                    setState(() => _indice = i);
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: _indice == i ? AppColors.accento : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _indice == i ? voci[i].$2 : voci[i].$1,
-                      color: _indice == i ? Colors.black : Colors.grey.shade500,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 62,
+          child: Row(
+            children: [
+              for (var i = 0; i < voci.length; i++)
+                Expanded(
+                  child: Semantics(
+                    label: voci[i].$3,
+                    button: true,
+                    selected: _indice == i,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        if (_indice == i) return;
+                        HapticFeedback.selectionClick();
+                        setState(() => _indice = i);
+                      },
+                      child: Column(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            height: 3,
+                            width: _indice == i ? 28 : 0,
+                            color: AppColors.accento,
+                          ),
+                          const SizedBox(height: 9),
+                          Icon(
+                            _indice == i ? voci[i].$2 : voci[i].$1,
+                            size: 24,
+                            color: _indice == i ? AppColors.accento : Colors.grey.shade600,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            voci[i].$3.toUpperCase(),
+                            style: GoogleFonts.oswald(
+                              fontSize: 10.5,
+                              letterSpacing: 1.1,
+                              fontWeight: FontWeight.w500,
+                              color: _indice == i ? AppColors.accento : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

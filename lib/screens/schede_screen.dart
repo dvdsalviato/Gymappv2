@@ -426,7 +426,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(28)),
+          decoration: pannello(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -547,7 +547,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
                     label: const Text('Programmi'),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
-                      shape: const StadiumBorder(),
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                       foregroundColor: AppColors.accento,
                       side: BorderSide(color: AppColors.accento.withValues(alpha: 0.7)),
                     ),
@@ -561,7 +561,7 @@ class _SchedeScreenState extends State<SchedeScreen> {
                     label: const Text('Con AI'),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(52),
-                      shape: const StadiumBorder(),
+                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                       foregroundColor: AppColors.accento,
                       side: BorderSide(color: AppColors.accento.withValues(alpha: 0.7)),
                     ),
@@ -610,14 +610,14 @@ class _CardScheda extends StatelessWidget {
     final scuro = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: coloreSuperficie(context),
-      borderRadius: BorderRadius.circular(26),
+      borderRadius: BorderRadius.circular(raggioPannello),
       child: InkWell(
         onTap: onApri,
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(raggioPannello),
         child: Container(
           padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(26),
+            borderRadius: BorderRadius.circular(raggioPannello),
             border: Border.all(color: scuro ? Colors.white.withValues(alpha: 0.06) : Colors.transparent),
           ),
           child: Row(

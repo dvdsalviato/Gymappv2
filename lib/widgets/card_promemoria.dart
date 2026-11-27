@@ -61,7 +61,7 @@ class _CardPromemoriaState extends State<CardPromemoria> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(24)),
+      decoration: pannello(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -132,7 +132,7 @@ class _CardPromemoriaState extends State<CardPromemoria> {
             label: Text('Ora: $_oraTesto'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
-              shape: const StadiumBorder(),
+              shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
               foregroundColor: AppColors.accento,
               side: BorderSide(color: AppColors.accento.withValues(alpha: 0.6)),
             ),

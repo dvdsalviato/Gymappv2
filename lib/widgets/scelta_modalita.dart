@@ -142,7 +142,7 @@ class _InterruttoreTabellaState extends State<InterruttoreTabella> {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(24)),
+      decoration: pannello(context),
       child: SwitchListTile(
         value: _attiva ?? true,
         onChanged: _attiva == null

@@ -138,7 +138,7 @@ class _SezioneDatiBackupState extends State<SezioneDatiBackup> {
           label: Text(testo),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size.fromHeight(50),
-            shape: const StadiumBorder(),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             alignment: Alignment.centerLeft,
           ),
         ),
@@ -151,7 +151,7 @@ class _SezioneDatiBackupState extends State<SezioneDatiBackup> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(24)),
+      decoration: pannello(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

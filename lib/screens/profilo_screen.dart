@@ -117,7 +117,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: selezionato ? AppColors.accento.withValues(alpha: 0.15) : coloreChip(context),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: selezionato ? AppColors.accento : Colors.transparent,
                     width: 2,
@@ -139,10 +139,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 14, 8, 14),
-      decoration: BoxDecoration(
-        color: coloreSuperficie(context),
-        borderRadius: BorderRadius.circular(24),
-      ),
+      decoration: pannello(context),
       child: Row(
         children: [
           Expanded(
@@ -179,6 +176,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const TitoloSezione('Il tuo profilo'),
         TextField(
           controller: _nomeCtrl,
           decoration: const InputDecoration(
@@ -186,7 +184,7 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
             hintText: 'es. Davide',
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
         _cardPesoAttuale(),
         const SizedBox(height: 24),
         Row(
@@ -224,6 +222,85 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
     );
   }
 
+  /// Account, backup e aggiornamenti: un elenco sobrio in fondo, i dettagli
+  /// tecnici stanno nelle rispettive pagine.
+  Widget _elencoAccount() {
+    final righe = <Widget>[
+      _riga(
+        Icons.cloud_sync_outlined,
+        'Account Google e sincronizzazione',
+        'Stessi dati su tutti i dispositivi',
+        () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountScreen())),
+      ),
+      _riga(
+        Icons.folder_open_outlined,
+        'Backup su file e importazione',
+        'Esporta, ripristina, CSV da Strong e Hevy',
+        () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => Scaffold(
+              appBar: AppBar(title: const Text('Backup e importazione')),
+              body: const SingleChildScrollView(
+                padding: EdgeInsets.all(20),
+                child: SezioneDatiBackup(),
+              ),
+            ),
+          ),
+        ),
+      ),
+      // Nel browser la webapp si aggiorna da sola.
+      if (!kIsWeb)
+        _riga(
+          Icons.system_update_outlined,
+          'Aggiorna app',
+          buildInstallata == 0 ? 'Cerca una versione nuova' : 'Versione installata: build $buildInstallata',
+          () => mostraAggiornaApp(context),
+        ),
+    ];
+    return Container(
+      decoration: pannello(context),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < righe.length; i++) ...[
+            if (i > 0) const Divider(height: 1, indent: 56),
+            righe[i],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _riga(IconData icona, String titolo, String sottotitolo, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+          child: Row(
+            children: [
+              Icon(icona, color: AppColors.accento, size: 22),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(titolo, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text(sottotitolo, style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.grey.shade600),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final corpo = _loading
@@ -257,41 +334,16 @@ class _ProfiloScreenState extends State<ProfiloScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        OutlinedButton.icon(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const AccountScreen()),
-                          ),
-                          icon: const Icon(Icons.cloud_sync_outlined),
-                          label: const Text('Account Google e backup'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                            shape: const StadiumBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        // Nel browser la webapp si aggiorna da sola.
-                        if (!kIsWeb) OutlinedButton.icon(
-                          onPressed: () => mostraAggiornaApp(context),
-                          icon: const Icon(Icons.system_update),
-                          label: Text(
-                            buildInstallata == 0 ? 'Aggiorna app' : 'Aggiorna app · build $buildInstallata',
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size.fromHeight(52),
-                            shape: const StadiumBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        const SezioneDatiBackup(),
-                        const SizedBox(height: 14),
-                        const SceltaColore(),
-                        const SizedBox(height: 14),
-                        const InterruttoreTabella(),
-                        const SizedBox(height: 14),
-                        const CardPromemoria(),
-                        const SizedBox(height: 22),
                         _sezioneDati(),
+                        const TitoloSezione('App', padding: EdgeInsets.only(top: 8, bottom: 10)),
+                        const SceltaColore(),
+                        const SizedBox(height: 12),
+                        const InterruttoreTabella(),
+                        const SizedBox(height: 12),
+                        const CardPromemoria(),
+                        const TitoloSezione('Account e dati', padding: EdgeInsets.only(top: 22, bottom: 10)),
+                        _elencoAccount(),
+                        const SizedBox(height: 12),
                       ],
                     ),
                   ),

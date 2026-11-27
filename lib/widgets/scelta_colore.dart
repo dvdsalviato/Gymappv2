@@ -15,7 +15,7 @@ class SceltaColore extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(color: coloreSuperficie(context), borderRadius: BorderRadius.circular(24)),
+      decoration: pannello(context),
       child: ValueListenableBuilder<int>(
         valueListenable: ThemeController.colore,
         builder: (context, scelto, _) => Column(
