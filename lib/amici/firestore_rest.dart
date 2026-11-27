@@ -156,12 +156,29 @@ class FirestoreRest {
       }
     }
 
-    var r = await chiama(true);
-    if (r.statusCode != 200) {
-      final dettaglio = _messaggioErrore(r);
-      if (dettaglio.contains('FEDERATED_USER_ID_ALREADY_LINKED') || dettaglio.contains('CREDENTIAL_ALREADY_IN_USE')) {
+    // Google a volte risponde 200 ma senza token (account già collegato a un
+    // altro profilo): in quel caso accedo direttamente al profilo esistente.
+    bool senzaToken(http.Response r) {
+      if (r.statusCode != 200) return false;
+      try {
+        final j = jsonDecode(utf8.decode(r.bodyBytes));
+        return j is! Map || j['idToken'] is! String || j['localId'] is! String;
+      } catch (_) {
+        return true;
+      }
+    }
+
+    var r = await chiama(_idToken != null);
+    if (r.statusCode != 200 || senzaToken(r)) {
+      final dettaglio = r.statusCode != 200 ? _messaggioErrore(r) : utf8.decode(r.bodyBytes);
+      if (senzaToken(r) ||
+          dettaglio.contains('FEDERATED_USER_ID_ALREADY_LINKED') ||
+          dettaglio.contains('CREDENTIAL_ALREADY_IN_USE')) {
         r = await chiama(false);
       }
+    }
+    if (senzaToken(r)) {
+      throw AmiciErrore('Accesso con Google non riuscito: risposta incompleta dal server.\n\n${utf8.decode(r.bodyBytes)}');
     }
     if (r.statusCode != 200) {
       final dettaglio = _messaggioErrore(r);
@@ -172,12 +189,12 @@ class FirestoreRest {
     }
     final j = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
     _idToken = j['idToken'] as String;
-    _refreshToken = j['refreshToken'] as String;
+    _refreshToken = (j['refreshToken'] as String?) ?? _refreshToken;
     uid = j['localId'] as String;
     final secondi = int.tryParse('${j['expiresIn']}') ?? 3600;
     _scadenza = DateTime.now().add(Duration(seconds: secondi));
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_chiaveRinnovo, _refreshToken!);
+    if (_refreshToken != null) await prefs.setString(_chiaveRinnovo, _refreshToken!);
     await prefs.setString(_chiaveUid, uid!);
     await prefs.setBool('amici_google', true);
     await prefs.setString('amici_email', (j['email'] as String?) ?? email ?? '');
